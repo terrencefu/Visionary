@@ -1,8 +1,37 @@
+
 import adsk.core
 import adsk.fusion
 import json
 import os
 import math
+
+
+# Fusion's API stores design lengths in centimetres even when the UI
+# displays millimetres. AssemblyGuide exports millimetres.
+FUSION_CM_TO_MM = 10.0
+
+# Preserve the original 0.1 cm broad-phase contact distance, but name it
+# in the exported/planning coordinate unit used by this script.
+GEOMETRIC_CONTACT_TOLERANCE_MM = 1.0
+
+# Set this to a root occurrence name to override automatic anchor selection.
+# Leave it as None to select the lowest legal root along the assembly axis.
+ASSEMBLY_ANCHOR_OVERRIDE = None
+
+# Optional component-specific reference points in millimetres. Each key is a
+# Fusion component name and each value must contain a stable point in that
+# component's local coordinate system. Use these for a deliberate CAD feature
+# (for example, a mounting corner or insertion interface) instead of the
+# default bounding-box corner.
+#
+# Example:
+# COMPONENT_REFERENCE_POINT_OVERRIDES = {
+#     "Base Plate": {
+#         "name": "bottom_front_left_mounting_corner",
+#         "local_position": [0.0, 0.0, 0.0]
+#     }
+# }
+COMPONENT_REFERENCE_POINT_OVERRIDES = {}
 
 
 # ==========================================================
@@ -11,6 +40,7 @@ import math
 
 def clean_number(value):
     """Remove tiny floating-point errors and round values."""
+
     if abs(value) < 0.000001:
         return 0.0
 
@@ -40,23 +70,115 @@ def matrix_to_rotation(transform):
 
 
 def matrix_to_position(transform):
-    """Extract XYZ position from a Fusion transform."""
+    """Extract XYZ position from a Fusion transform in millimetres."""
 
     return [
-        clean_number(transform.getCell(0, 3)),
-        clean_number(transform.getCell(1, 3)),
-        clean_number(transform.getCell(2, 3))
+        clean_number(transform.getCell(0, 3) * FUSION_CM_TO_MM),
+        clean_number(transform.getCell(1, 3) * FUSION_CM_TO_MM),
+        clean_number(transform.getCell(2, 3) * FUSION_CM_TO_MM)
     ]
 
 
 def point_to_list(point):
-    """Convert a Fusion Point3D to [x, y, z]."""
+    """Convert a Fusion Point3D from centimetres to [x, y, z] mm."""
 
     return [
-        clean_number(point.x),
-        clean_number(point.y),
-        clean_number(point.z)
+        clean_number(point.x * FUSION_CM_TO_MM),
+        clean_number(point.y * FUSION_CM_TO_MM),
+        clean_number(point.z * FUSION_CM_TO_MM)
     ]
+
+
+def transform_local_point_to_assembly(
+    position,
+    rotation,
+    local_point
+):
+    """
+    Transform a component-local point into Fusion root assembly coordinates.
+
+    All arguments and the returned point use millimetres. The occurrence
+    position remains Fusion's arbitrary occurrence origin; this helper lets
+    the exported plan instead use a meaningful component reference point.
+    """
+
+    return [
+        clean_number(
+            position[row]
+            + sum(
+                rotation[row][column] * local_point[column]
+                for column in range(3)
+            )
+        )
+        for row in range(3)
+    ]
+
+
+def get_component_reference_point(
+    component_id,
+    component_bounds
+):
+    """
+    Return the named local reference point for a component.
+
+    The default is the minimum X/Y/Z corner of the component-local bounding
+    box. It gives rectangular parts, such as plates, an intuitive and stable
+    corner reference. An explicit override is available for irregular parts
+    whose useful assembly reference is a CAD feature rather than a box corner.
+    """
+
+    override = COMPONENT_REFERENCE_POINT_OVERRIDES.get(
+        component_id
+    )
+
+    if override is not None:
+
+        local_position = override.get(
+            "local_position"
+        )
+
+        if (
+            isinstance(local_position, list)
+            and len(local_position) == 3
+        ):
+
+            return {
+                "name": override.get(
+                    "name",
+                    "configured_component_reference"
+                ),
+                "method": "configured_component_reference",
+                "cad_local_position": [
+                    clean_number(value)
+                    for value in local_position
+                ],
+                "local_coordinate_frame": "component_local",
+                "units": "mm"
+            }
+
+        raise ValueError(
+            "Reference-point override for '"
+            + component_id
+            + "' must contain a three-value local_position."
+        )
+
+    if component_bounds is None:
+
+        return {
+            "name": "component_local_origin",
+            "method": "component_bounds_unavailable",
+            "cad_local_position": [0.0, 0.0, 0.0],
+            "local_coordinate_frame": "component_local",
+            "units": "mm"
+        }
+
+    return {
+        "name": "component_local_bounding_box_min_corner",
+        "method": "component_local_bounding_box_minimum",
+        "cad_local_position": component_bounds["min"],
+        "local_coordinate_frame": "component_local",
+        "units": "mm"
+    }
 
 
 # ==========================================================
@@ -109,14 +231,14 @@ def get_component_bounds(component):
 
     return {
         "min": [
-            clean_number(min_x),
-            clean_number(min_y),
-            clean_number(min_z)
+            clean_number(min_x * FUSION_CM_TO_MM),
+            clean_number(min_y * FUSION_CM_TO_MM),
+            clean_number(min_z * FUSION_CM_TO_MM)
         ],
         "max": [
-            clean_number(max_x),
-            clean_number(max_y),
-            clean_number(max_z)
+            clean_number(max_x * FUSION_CM_TO_MM),
+            clean_number(max_y * FUSION_CM_TO_MM),
+            clean_number(max_z * FUSION_CM_TO_MM)
         ]
     }
 
@@ -403,10 +525,6 @@ def get_axis_interval_metrics(box_a, box_b, axis_index):
         else:
             gap = 0.0
 
-        # Normalize overlap by the smaller part dimension.
-        #
-        # This is deliberately different from center-to-center
-        # distance.
         reference_dimension = min(
             dimensions_a[axis],
             dimensions_b[axis]
@@ -446,9 +564,6 @@ def get_axis_interval_metrics(box_a, box_b, axis_index):
         / 2.0
     )
 
-    # A stacking/interface axis should separate the two parts
-    # while retaining substantial support/alignment in the other
-    # two axes.
     separation_score = (
         1.0 - axis_overlap_ratio
     )
@@ -518,14 +633,9 @@ def get_relationship_weight(relationship):
             has_candidate_contact = True
 
     if has_joint:
-
-        # A pair with both joint and geometric evidence is still
-        # one high-confidence relationship, not two independent
-        # relationships.
         return 2.0
 
     if has_candidate_contact:
-
         return 0.5
 
     return 0.0
@@ -563,15 +673,6 @@ def analyze_global_assembly_axis(
 
         - center-to-center displacement
         - motion/removability simulation
-
-    This separation is important.
-
-    For example, a long 1x8 plate can have a center many
-    centimeters away from the engine it supports, even though
-    their actual interface is vertically stacked.
-
-    The old center-displacement method could therefore select
-    Y instead of Z.
     """
 
     axis_names = [
@@ -604,10 +705,6 @@ def analyze_global_assembly_axis(
     ]
 
     relationship_diagnostics = []
-
-    # ------------------------------------------------------
-    # Score each relationship independently.
-    # ------------------------------------------------------
 
     for relationship in relationships:
 
@@ -650,13 +747,6 @@ def analyze_global_assembly_axis(
 
             axis_weights[axis_index] += weight
 
-        # --------------------------------------------------
-        # Center displacement is retained ONLY as diagnostic
-        # information.
-        #
-        # It does not contribute to axis_totals.
-        # --------------------------------------------------
-
         center_a = part_a["position"]
         center_b = part_b["position"]
 
@@ -689,10 +779,6 @@ def analyze_global_assembly_axis(
             ]
         })
 
-    # ------------------------------------------------------
-    # Normalize axis scores.
-    # ------------------------------------------------------
-
     axis_scores = []
 
     for axis_index in range(3):
@@ -712,10 +798,6 @@ def analyze_global_assembly_axis(
             clean_number(score)
         )
 
-    # ------------------------------------------------------
-    # Select the axis line.
-    # ------------------------------------------------------
-
     high_confidence_relationship_count = sum(
         1
         for relationship in relationship_diagnostics
@@ -724,12 +806,7 @@ def analyze_global_assembly_axis(
 
     if max(axis_weights) <= 0.0:
 
-        # No relationship information exists.
-        #
-        # Keep the prototype's conventional +Z fallback,
-        # but explicitly mark it low confidence.
         selected_index = 2
-
         confidence = "low"
 
         selection_reason = (
@@ -779,16 +856,7 @@ def analyze_global_assembly_axis(
         )
 
     # ------------------------------------------------------
-    # Determine the sign separately.
-    # ------------------------------------------------------
-    #
-    # The axis line above is deliberately X/Y/Z without a
-    # sign.
-    #
-    # Centers are used here ONLY to determine whether the
-    # selected axis should be + or -.
-    #
-    # They are NOT used to decide which axis wins.
+    # Determine sign separately.
     # ------------------------------------------------------
 
     signed_direction = 0.0
@@ -898,6 +966,7 @@ def normalize_vector(vector):
     length = vector_length(vector)
 
     if length == 0:
+
         return [
             0.0,
             0.0,
@@ -946,8 +1015,6 @@ def add_direction(
         vector
     )
 
-    # Check for duplicate directions.
-
     for existing in directions:
 
         if vectors_are_close(
@@ -978,19 +1045,6 @@ def generate_candidate_directions(
     """
     Generate candidate assembly/disassembly directions
     using global and local coordinate axes.
-
-    Global directions:
-        +/- X
-        +/- Y
-        +/- Z
-
-    Local directions:
-        +/- x
-        +/- y
-        +/- z
-
-    The local axes are obtained from the columns of
-    the part's 3x3 rotation matrix.
 
     This stage generates candidate directions only.
     It does not determine whether a direction is
@@ -1054,8 +1108,6 @@ def generate_candidate_directions(
     # ------------------------------------------------------
     # LOCAL AXES
     # ------------------------------------------------------
-    # Rotation matrix columns represent the local X/Y/Z axes
-    # expressed in global coordinates.
 
     local_x = [
         rotation[0][0],
@@ -1174,8 +1226,7 @@ def get_joint_graph(relationships):
     relationships.
 
     The graph represents physical/CAD connectivity, not assembly
-    order. Direction is deliberately added later by the precedence
-    analysis using the assembly axis and part heights.
+    order.
     """
 
     graph = {}
@@ -1192,7 +1243,6 @@ def get_joint_graph(relationships):
             if evidence.get("type") == "joint":
 
                 has_joint_evidence = True
-
                 break
 
         if not has_joint_evidence:
@@ -1208,14 +1258,10 @@ def get_joint_graph(relationships):
             graph[part_b] = []
 
         if part_b not in graph[part_a]:
-            graph[part_a].append(
-                part_b
-            )
+            graph[part_a].append(part_b)
 
         if part_a not in graph[part_b]:
-            graph[part_b].append(
-                part_a
-            )
+            graph[part_b].append(part_a)
 
     return graph
 
@@ -1311,24 +1357,14 @@ def analyze_joint_precedence(
     """
     Prepare precedence information from the Fusion-joint graph.
 
-    Important distinction:
-
-        joint graph       = which parts are connected
-        precedence graph  = which connected part must come first
-
-    A Fusion joint by itself is not an ordering statement.
-
-    For the current Visionary bottom-up assembly model, a joint
-    connecting a lower part to a higher part gives:
+    A joint connecting a lower part to a higher part gives:
 
         lower part -> higher part
 
-    Equal-height pairs are kept as ambiguous rather than being
-    given an arbitrary order.
+    Equal-height pairs remain ambiguous.
 
-    This function intentionally produces a partial order.
-    It does not force a single assembly sequence when the CAD
-    model permits branches.
+    This produces a partial order rather than forcing a
+    single sequence.
     """
 
     heights = get_part_height_map(
@@ -1416,7 +1452,7 @@ def analyze_joint_precedence(
                 )
 
     # ------------------------------------------------------
-    # Build directed adjacency from the precedence edges.
+    # Build directed adjacency.
     # ------------------------------------------------------
 
     precedence_graph = {}
@@ -1436,12 +1472,13 @@ def analyze_joint_precedence(
             precedence_graph[after] = []
 
         if after not in precedence_graph[before]:
+
             precedence_graph[before].append(
                 after
             )
 
     # ------------------------------------------------------
-    # Identify graph roots and leaves.
+    # Identify roots and leaves.
     # ------------------------------------------------------
 
     incoming_count = {}
@@ -1469,13 +1506,11 @@ def analyze_joint_precedence(
 
             leaves.append(part)
 
-    # Sort roots/leaves to make JSON deterministic.
-
     roots.sort()
     leaves.sort()
 
     # ------------------------------------------------------
-    # Find connected components of the joint graph.
+    # Find connected components.
     # ------------------------------------------------------
 
     connected_components = []
@@ -1555,6 +1590,543 @@ def analyze_joint_precedence(
 
 
 # ==========================================================
+# Assembly plan generation
+# ==========================================================
+
+def transpose_rotation(rotation):
+    """Return the transpose/inverse of an orthonormal 3x3 rotation."""
+
+    return [
+        [rotation[column][row] for column in range(3)]
+        for row in range(3)
+    ]
+
+
+def multiply_rotation_matrices(left, right):
+    """Return the product of two 3x3 rotation matrices."""
+
+    return [
+        [
+            clean_number(
+                sum(
+                    left[row][index] * right[index][column]
+                    for index in range(3)
+                )
+            )
+            for column in range(3)
+        ]
+        for row in range(3)
+    ]
+
+
+def multiply_rotation_vector(rotation, vector):
+    """Return a 3x3 rotation matrix multiplied by a 3D vector."""
+
+    return [
+        clean_number(
+            sum(
+                rotation[row][column] * vector[column]
+                for column in range(3)
+            )
+        )
+        for row in range(3)
+    ]
+
+
+def get_part_reference_position(part):
+    """Return the assembly-space point used to position this part in a plan."""
+
+    reference_point = part.get(
+        "reference_point",
+        {}
+    )
+
+    return reference_point.get(
+        "assembly_position",
+        part["position"]
+    )
+
+
+def pose_relative_to_anchor(anchor_part, target_part):
+    """
+    Express a target part's final CAD pose in the anchor part's local frame.
+
+    At runtime, Visionary can combine this fixed relative pose with the
+    observed anchor pose. The whole assembly can then shift or rotate on the
+    workbench while subsequent targets stay correct relative to the anchor.
+    """
+
+    anchor_rotation_inverse = transpose_rotation(
+        anchor_part["rotation"]
+    )
+
+    anchor_position = get_part_reference_position(
+        anchor_part
+    )
+
+    target_position = get_part_reference_position(
+        target_part
+    )
+
+    position_delta = [
+        target_position[axis]
+        - anchor_position[axis]
+        for axis in range(3)
+    ]
+
+    return {
+        "position": multiply_rotation_vector(
+            anchor_rotation_inverse,
+            position_delta
+        ),
+
+        "rotation": multiply_rotation_matrices(
+            anchor_rotation_inverse,
+            target_part["rotation"]
+        )
+    }
+
+
+def select_assembly_anchor(
+    part_by_id,
+    incoming_count,
+    precedence_analysis,
+    anchor_override=None
+):
+    """
+    Select the component that establishes the live assembly reference frame.
+
+    Only roots of the precedence graph are eligible because the anchor must be
+    placeable before every operation that is expressed relative to it. When
+    multiple roots are legal, select the lowest along the assembly axis and
+    use the occurrence name as a deterministic tie-breaker.
+    """
+
+    candidate_ids = sorted([
+        part_id
+        for part_id, count in incoming_count.items()
+        if count == 0 and part_id in part_by_id
+    ])
+
+    if not candidate_ids:
+
+        return {
+            "status": "no_anchor_candidate",
+            "part": None,
+            "candidates": []
+        }
+
+    part_heights = precedence_analysis.get(
+        "part_heights",
+        {}
+    )
+
+    candidates = [
+        {
+            "part": part_id,
+            "assembly_axis_projection_mm": clean_number(
+                part_heights.get(
+                    part_id,
+                    0.0
+                )
+            )
+        }
+        for part_id in candidate_ids
+    ]
+
+    if anchor_override is not None:
+
+        if anchor_override not in candidate_ids:
+
+            return {
+                "status": "invalid_anchor_override",
+                "part": None,
+                "requested_part": anchor_override,
+                "candidates": candidates
+            }
+
+        return {
+            "status": "configured",
+            "method": "configured_root_override",
+            "part": anchor_override,
+            "candidates": candidates
+        }
+
+    selected_part = min(
+        candidate_ids,
+        key=lambda part_id: (
+            part_heights.get(part_id, 0.0),
+            part_id
+        )
+    )
+
+    return {
+        "status": "automatic",
+        "method": "root_lowest_along_assembly_axis",
+        "part": selected_part,
+        "candidates": candidates,
+        "tie_breaker": "occurrence_name_ascending"
+    }
+
+
+def generate_assembly_plan(
+    parts,
+    precedence_analysis,
+    anchor_override=None
+):
+    """
+    Generate a staged assembly plan from the precedence graph.
+
+    The planner performs a topological-style staged traversal.
+
+    At each stage:
+
+        1. Find all parts whose dependencies are complete.
+        2. Put all such independent parts into the same step.
+        3. Mark those parts as completed.
+        4. Repeat until every part is planned.
+
+    This means the planner does NOT invent an ordering between
+    independent parts.
+
+    Example:
+
+        Plate1 ──┐
+                 ├──> Engine ──> Beam
+        Plate2 ──┘
+
+    becomes:
+
+        Step 1: Plate1, Plate2
+        Step 2: Engine
+        Step 3: Beam
+
+    Every part is currently represented as a PLACE operation with
+    its final CAD target pose. This lets the projector and future
+    state machine consume the same expected position and rotation
+    without inventing target locations at runtime.
+
+    Special operations such as FASTEN, INSERT, SNAP, etc.
+    can be added later without changing the core planning
+    algorithm.
+    """
+
+    precedence_graph = precedence_analysis.get(
+        "precedence_graph",
+        {}
+    )
+
+    # ------------------------------------------------------
+    # Make sure every exported part exists in the planning
+    # graph.
+    #
+    # Parts with no Fusion-joint relationships would otherwise
+    # be invisible to the precedence graph.
+    # ------------------------------------------------------
+
+    all_part_ids = [
+        part["id"]
+        for part in parts
+    ]
+
+    graph = {}
+
+    part_by_id = {
+        part["id"]: part
+        for part in parts
+    }
+
+    for part_id in all_part_ids:
+
+        graph[part_id] = []
+
+    for before in precedence_graph:
+
+        if before not in graph:
+            graph[before] = []
+
+        for after in precedence_graph[before]:
+
+            if after not in graph:
+                graph[after] = []
+
+            if after not in graph[before]:
+
+                graph[before].append(
+                    after
+                )
+
+    # ------------------------------------------------------
+    # Build incoming dependency counts.
+    # ------------------------------------------------------
+
+    incoming_count = {
+        part_id: 0
+        for part_id in graph
+    }
+
+    for before in graph:
+
+        for after in graph[before]:
+
+            incoming_count[after] += 1
+
+    # ------------------------------------------------------
+    # Select an anchor that can be placed in the first stage.
+    # ------------------------------------------------------
+
+    anchor_selection = select_assembly_anchor(
+        part_by_id,
+        incoming_count,
+        precedence_analysis,
+        anchor_override
+    )
+
+    if anchor_selection["part"] is None:
+
+        if not anchor_selection["candidates"] and graph:
+
+            return {
+                "method": "precedence_graph_topological_planning",
+                "status": "error",
+                "error": "precedence_graph_cycle",
+                "unresolved_parts": sorted(graph.keys()),
+                "steps": []
+            }
+
+        return {
+            "method": "precedence_graph_topological_planning",
+            "status": "error",
+            "error": anchor_selection["status"],
+            "anchor_selection": anchor_selection,
+            "steps": []
+        }
+
+    anchor_part = part_by_id[
+        anchor_selection["part"]
+    ]
+
+    # ------------------------------------------------------
+    # Planning state.
+    # ------------------------------------------------------
+
+    remaining = set(
+        graph.keys()
+    )
+
+    completed = set()
+
+    steps = []
+
+    step_number = 1
+
+    # ------------------------------------------------------
+    # Repeatedly find currently available parts.
+    # ------------------------------------------------------
+
+    while remaining:
+
+        available = []
+
+        for part_id in sorted(
+            remaining
+        ):
+
+            dependencies_satisfied = True
+
+            for dependency in graph:
+
+                if part_id in graph[dependency]:
+
+                    if dependency not in completed:
+
+                        dependencies_satisfied = False
+                        break
+
+            if dependencies_satisfied:
+
+                available.append(
+                    part_id
+                )
+
+        # --------------------------------------------------
+        # No available part means the precedence graph
+        # contains a cycle.
+        # --------------------------------------------------
+
+        if not available:
+
+            cycle_parts = sorted(
+                remaining
+            )
+
+            return {
+                "method":
+                    "precedence_graph_topological_planning",
+
+                "status":
+                    "error",
+
+                "error":
+                    "precedence_graph_cycle",
+
+                "unresolved_parts":
+                    cycle_parts,
+
+                "steps":
+                    []
+            }
+
+        # --------------------------------------------------
+        # Create operations for this step.
+        # --------------------------------------------------
+
+        operations = []
+
+        for part_id in available:
+
+            part = part_by_id[part_id]
+
+            dependencies = sorted([
+                dependency
+                for dependency in graph
+                if part_id in graph[dependency]
+            ])
+
+            relative_pose = pose_relative_to_anchor(
+                anchor_part,
+                part
+            )
+
+            reference_point = part.get(
+                "reference_point",
+                {}
+            )
+
+            operations.append({
+                "id": "place_" + part_id,
+
+                "type": "PLACE",
+
+                "part": part_id,
+
+                "component": part["component"],
+
+                "target_position": get_part_reference_position(
+                    part
+                ),
+
+                "target_position_reference": {
+                    "name": reference_point.get(
+                        "name",
+                        "occurrence_origin"
+                    ),
+                    "method": reference_point.get(
+                        "method",
+                        "legacy_occurrence_origin"
+                    ),
+                    "reference_frame": reference_point.get(
+                        "reference_frame",
+                        "occurrence_origin_frame"
+                    ),
+                    "reference_frame_position": [0.0, 0.0, 0.0]
+                },
+
+                "target_rotation": part["rotation"],
+
+                "target_coordinate_frame":
+                    "fusion_root_assembly",
+
+                "target_units": "mm",
+
+                "target_relative_to_anchor": {
+                    "anchor_part": anchor_part["id"],
+                    "position": relative_pose["position"],
+                    "rotation": relative_pose["rotation"],
+                    "coordinate_frame":
+                        "anchor_reference_point_local",
+                    "position_units": "mm"
+                },
+
+                "dependencies": [
+                    "place_" + dependency
+                    for dependency in dependencies
+                ],
+
+                "depends_on_parts": dependencies
+            })
+
+        steps.append({
+            "step": step_number,
+            "operations": operations
+        })
+
+        # --------------------------------------------------
+        # Mark all operations in this stage complete from
+        # the planner's perspective.
+        #
+        # This does NOT mean the human has completed them yet.
+        # The runtime state machine will track actual completion.
+        # --------------------------------------------------
+
+        for part_id in available:
+
+            remaining.remove(
+                part_id
+            )
+
+            completed.add(
+                part_id
+            )
+
+        step_number += 1
+
+    # ------------------------------------------------------
+    # Return the generated plan.
+    # ------------------------------------------------------
+
+    return {
+        "method":
+            "precedence_graph_topological_planning",
+
+        "status":
+            "valid",
+
+        "coordinate_system": {
+            "frame": "fusion_root_assembly",
+            "units": "mm",
+            "origin": "Fusion root component origin"
+        },
+
+        "assembly_anchor": {
+            "part": anchor_part["id"],
+            "operation": "place_" + anchor_part["id"],
+            "reference_point": anchor_part.get(
+                "reference_point",
+                {
+                    "name": "occurrence_origin",
+                    "assembly_position": anchor_part["position"],
+                    "units": "mm"
+                }
+            ),
+            "selection": anchor_selection
+        },
+
+        "steps":
+            steps,
+
+        "operation_count":
+            sum(
+                len(step["operations"])
+                for step in steps
+            ),
+
+        "step_count":
+            len(steps)
+    }
+
+
+# ==========================================================
 # Main
 # ==========================================================
 
@@ -1601,7 +2173,9 @@ def run(context):
 
             "direction_analysis": [],
 
-            "precedence_analysis": {}
+            "precedence_analysis": {},
+
+            "assembly_plan": {}
         }
 
         # ==================================================
@@ -1609,6 +2183,8 @@ def run(context):
         # ==================================================
 
         components_seen = set()
+
+        component_bounds_by_id = {}
 
         # ==================================================
         # Store occurrence information for analysis
@@ -1646,27 +2222,66 @@ def run(context):
 
                 component = occurrence.component
 
+                component_bounds = get_component_bounds(
+                    component
+                )
+
+                component_reference_point = (
+                    get_component_reference_point(
+                        component_id,
+                        component_bounds
+                    )
+                )
+
                 assembly["components"].append({
                     "id": component_id,
 
                     "bounding_box":
-                        get_component_bounds(
-                            component
-                        )
+                        component_bounds,
+
+                    "reference_point": {
+                        "name": component_reference_point["name"],
+                        "method": component_reference_point["method"],
+                        "reference_frame":
+                            "component_reference_point_local",
+                        "reference_frame_position": [0.0, 0.0, 0.0],
+                        "units": "mm",
+                        "cad_mapping": {
+                            "source_frame": "component_local",
+                            "position": component_reference_point[
+                                "cad_local_position"
+                            ]
+                        }
+                    }
                 })
+
+                component_bounds_by_id[component_id] = (
+                    component_bounds
+                )
 
                 components_seen.add(
                     component_id
                 )
 
+            component_reference_point = (
+                get_component_reference_point(
+                    component_id,
+                    component_bounds_by_id[component_id]
+                )
+            )
+
+            reference_position = (
+                transform_local_point_to_assembly(
+                    position,
+                    rotation,
+                    component_reference_point[
+                        "cad_local_position"
+                    ]
+                )
+            )
+
             # ----------------------------------------------
             # Assembly height
-            #
-            # This remains the bottom of the occurrence
-            # bounding box along +Z.
-            #
-            # It is used by precedence AFTER the global
-            # assembly axis has been selected.
             # ----------------------------------------------
 
             assembly_height = (
@@ -1687,8 +2302,26 @@ def run(context):
                 "position":
                     position,
 
+                "occurrence_origin": position,
+
                 "rotation":
                     rotation,
+
+                "reference_point": {
+                    "name": component_reference_point["name"],
+                    "method": component_reference_point["method"],
+                    "reference_frame": "part_reference_point_local",
+                    "reference_frame_position": [0.0, 0.0, 0.0],
+                    "assembly_position": reference_position,
+                    "coordinate_frame": "fusion_root_assembly",
+                    "units": "mm",
+                    "cad_mapping": {
+                        "source_frame": "component_local",
+                        "position": component_reference_point[
+                            "cad_local_position"
+                        ]
+                    }
+                },
 
                 "bounding_box":
                     bounding_box,
@@ -1722,7 +2355,7 @@ def run(context):
         geometric_relationships = (
             find_geometric_relationships(
                 occurrences,
-                tolerance=0.1
+                tolerance=GEOMETRIC_CONTACT_TOLERANCE_MM
             )
         )
 
@@ -1749,15 +2382,6 @@ def run(context):
 
         # ==================================================
         # Assembly axis identification
-        # ==================================================
-        #
-        # IMPORTANT:
-        #
-        # This is now determined from relationship/interface
-        # geometry rather than center-to-center displacement.
-        #
-        # Motion/collision analysis is deliberately NOT part
-        # of this decision.
         # ==================================================
 
         axis_analysis = (
@@ -1792,7 +2416,7 @@ def run(context):
         )
 
         # ==================================================
-        # Precedence analysis from Fusion joint graph
+        # Precedence analysis
         # ==================================================
 
         assembly["precedence_analysis"] = (
@@ -1800,6 +2424,18 @@ def run(context):
                 assembly["parts"],
                 assembly["relationships"],
                 assembly_axis
+            )
+        )
+
+        # ==================================================
+        # Automatic assembly plan generation
+        # ==================================================
+
+        assembly["assembly_plan"] = (
+            generate_assembly_plan(
+                assembly["parts"],
+                assembly["precedence_analysis"],
+                ASSEMBLY_ANCHOR_OVERRIDE
             )
         )
 
@@ -1837,6 +2473,50 @@ def run(context):
 
             f.write(
                 json_text
+            )
+
+        # ==================================================
+        # Plan summary
+        # ==================================================
+
+        plan = assembly["assembly_plan"]
+
+        if plan.get("status") == "valid":
+
+            plan_summary = (
+                "\n"
+                + "Plan status: valid"
+                + "\n"
+                + "Assembly steps: "
+                + str(
+                    plan.get(
+                        "step_count",
+                        0
+                    )
+                )
+                + "\n"
+                + "Operations: "
+                + str(
+                    plan.get(
+                        "operation_count",
+                        0
+                    )
+                )
+            )
+
+        else:
+
+            plan_summary = (
+                "\n"
+                + "Plan status: ERROR"
+                + "\n"
+                + "Error: "
+                + str(
+                    plan.get(
+                        "error",
+                        "unknown"
+                    )
+                )
             )
 
         # ==================================================
@@ -1888,6 +2568,7 @@ def run(context):
                     ]
                 )
             )
+            + plan_summary
             + "\n\n"
             + "Saved to:\n"
             + file_path
