@@ -92,6 +92,30 @@ class ArucoDiagnosticsTests(unittest.TestCase):
         self.assertEqual(d.rejection_code, 'solvepnp_failed')
         self.assertIsNone(d.max_error_px)
 
+    def test_collector_accepts_three_markers_at_five_px_only_with_valid_pose(self):
+        self.detect([0, 1, 3])
+        tracker = BoardTracker(self.K, self.dist, max_rms_px=config.COLLECTOR_MAX_ARUCO_RMS_PX)
+        tracker.detector = self.tracker.detector
+        pixels = np.concatenate([self.corners[i] for i in [0, 1, 3]], axis=1).reshape(-1, 1, 2)
+        cases = [(True, 5., 1000., True), (True, 5.01, 1000., False),
+                 (False, 0., 1000., False), (True, 0., -1000., False),
+                 (True, 0., float('nan'), False)]
+        for success, error, depth, accepted in cases:
+            projected = pixels + np.array([error, 0.])
+            with self.subTest(success=success, error=error, depth=depth), \
+                    patch('perception.aruco.cv2.solvePnP', return_value=(success, np.zeros(3), np.array([0.,0.,depth]))), \
+                    patch('perception.aruco.cv2.projectPoints', return_value=(projected, None)):
+                self.assertEqual(tracker.estimate(self.raw) is not None, accepted)
+                self.assertEqual(tracker.last_diagnostics.used_marker_count, 3)
+                self.assertEqual(tracker.last_diagnostics.max_acceptable_rms_px, 5.)
+
+    def test_collector_override_does_not_relax_default_tracker(self):
+        self.detect([0, 1, 3])
+        projected = np.concatenate([self.corners[i] for i in [0,1,3]], axis=1).reshape(-1,1,2) + [4., 0.]
+        with patch('perception.aruco.cv2.projectPoints', return_value=(projected, None)):
+            self.assertIsNone(self.tracker.estimate(self.raw))
+        self.assertEqual(self.tracker.last_diagnostics.max_acceptable_rms_px, 2.)
+
     def test_solver_exception_still_propagates_but_retains_reason(self):
         with patch('perception.aruco.cv2.solvePnP', side_effect=cv2.error('test solve failure')):
             with self.assertRaises(cv2.error):

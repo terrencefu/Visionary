@@ -20,7 +20,7 @@ def main():
                         help="Compare independent markers, all known markers, and diagnostic subset 0/1/3.")
     parser.add_argument("--marker-rotation", action="append", default=[], metavar="ID=DEGREES",
                         help="Declare actual printed rotation for DIAGNOSTIC fits only; repeat per marker. Default all 0.")
-    parser.add_argument("--diagnostic-fit", choices=['subset', 'individual', 'all'], default='subset',
+    parser.add_argument("--diagnostic-fit", choices=['subset', 'individual', 'all', 'top_01', 'bottom_23'], default='subset',
                         help="Fit used for numbered corners on the unrotated diagnostic view (default subset).")
     parser.add_argument("--frames", type=int, default=0, help="Stop after N frames (0 = interactive).")
     parser.add_argument("--no-preview", action="store_true", help="Terminal only; requires --frames or --image.")
