@@ -4,11 +4,11 @@
                                  board_pose, camera_matrix, dist_coeffs)
 
 Everything downstream of the change detection runs on UNDISTORTED frames, in
-the same camera matrix K. The lens displaces pixels by up to ~140 px at the
-corners of this camera and skews local angles by several degrees; that error
-cannot be removed from a centroid or an angle afterwards, so it is removed from
-the image first. Board geometry is then done with the undistorted-pixel
-variant, never by undistorting twice.
+the same camera matrix K. Measured on the current 1080p calibration, this lens
+displaces pixels by up to 104 px (88 px at mid-edge, 74 px at the corners) and
+skews local angles with them; that error cannot be removed from a centroid or
+an angle afterwards, so it is removed from the image first. Board geometry is
+then done with the undistorted-pixel variant, never by undistorting twice.
 """
 from dataclasses import dataclass, field
 

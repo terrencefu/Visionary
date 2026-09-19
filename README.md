@@ -141,7 +141,18 @@ Fusion supplies a part ID and CAD target pose; later register CAD to board/world
 
 `python -m unittest discover -s tests -v` runs 93 synthetic checks of distorted raw-pixel geometry, upside-down ArUco detection, multi-marker pose, transform composition, green detection, rigid-calibration recovery, rejection of moving-mount/degenerate data, and the whole perception slice — silhouette alignment across the full circle, part pose recovered in board millimetres through the real lens model and the upside-down mount, hand and marker rejection, wrong-part naming, symmetry folding, and step sequencing. It does not replace hardware calibration or physical error measurements.
 
-Perception is validated **synthetically only**: parts are rendered as flat polygons, projected through the lens model, and recovered. Over 45 placements (3×3 board positions × 5 angles, camera 600 mm up and rolled 180°, 2.5 px/mm): position error mean **0.10 mm**, max 0.24 mm; angle error mean **0.25°**, max 0.77°; **94 ms** mean per `detect_and_validate` call at 1080p, of which roughly a third is the two `cv2.undistort` calls that `AssemblyState` avoids repeating.
+Perception is validated **synthetically only**: parts are rendered as flat polygons, projected through the real `camera_calibration_1080p.npz` lens model onto the measured 493×305 mm fixture, and recovered. 135 placements per height (3 parts × 3×3 board positions × 5 angles), camera rolled 180° with a slight tilt:
+
+| camera height | px/mm | found | position mean / max | angle mean / max |
+|---|---|---|---|---|
+| 400 mm | 2.78 | 135/135 | 0.10 / 0.28 mm | 0.35° / 1.12° |
+| 600 mm | 1.85 | 135/135 | 0.15 / 0.49 mm | 0.55° / 1.87° |
+| 800 mm | 1.39 | 135/135 | 0.21 / 0.62 mm | 0.70° / 2.68° |
+| 900 mm | 1.23 | 135/135 | 0.23 / 0.72 mm | 0.73° / 2.99° |
+
+About **80 ms** per `detect_and_validate` call at 1080p, roughly a third of it the two `cv2.undistort` calls that `AssemblyState` avoids repeating.
+
+**Mount the camera between 400 and 900 mm.** Below ~1 px/mm (above ~1100 mm) detection collapses, and it collapses by shape: `green_wedge` — nearly a rectangle — is lost first at 1300 mm, `blue_2x4` at 1500 mm, and the chiral `red_l_plate` still resolves at 0.74 px/mm. That is the concavity argument in `part_catalog.py`, measured. The 82°×52° FOV means the board fits the frame from 400 mm up, so there is no reason to mount high.
 
 Those numbers measure the geometry, not the world. No real webcam frame, no real brick, and no venue lighting has been through this yet. Real accuracy will be set by segmentation quality — HSV tuning, shadow, glare, projector light on the part — not by the alignment, and it will be worse. Measure it on hardware before trusting any of it.
 
