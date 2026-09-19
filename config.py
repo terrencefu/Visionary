@@ -17,6 +17,15 @@ BOARD_BOUNDS_MM = None  # (min_x, min_y, max_x, max_y), actual flat surface
 MIN_VISIBLE_MARKERS = 3
 MAX_ARUCO_RMS_PX = 2.0
 
+# --- Perception: part detection and placement validation ---------------------
+# Consecutive still frames required before anything is measured. Raise it if
+# the user's hand is being validated instead of the part.
+PERCEPTION_STILL_FRAMES = 6
+# How close a placement must be to count as correct. These are acceptance
+# limits for the demo, not a statement of measured accuracy.
+PLACEMENT_TOLERANCE_MM = 3.0
+PLACEMENT_TOLERANCE_DEG = 8.0
+
 CHESSBOARD_INNER_CORNERS = (9, 6)
 CHESSBOARD_SQUARE_MM = 25.0  # MEASURE your print before calibration
 CHESSBOARD_TARGET_FRAMES = 30

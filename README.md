@@ -38,6 +38,8 @@ Run commands from the repository root. Every step is independent; stop and fix a
 9. **Solve:** `python main.py solve`. Calibrates projector intrinsics, computes each `T_pb @ inverse(T_cb)`, reports per-pose rotation/translation consistency, then fits one fixed camera→projector transform across all observations. Refuses insufficient pose diversity or excessive residuals/transform spread. Diagnostic arrays are saved separately, even when quality checks fail. Passing limits saves `projector_calibration.npz`; passing these software limits does **not** establish physical accuracy.
 10. **Physical validation:** `python main.py validate` targets the configured board center, or use `python main.py validate --target X_MM Y_MM` with measured numeric coordinates. Space projects, independently observes the landing point, and reports millimeter error. Results append to `data/world_validation.csv`. Move the whole rig, settle, and repeat the same physical target. Also sample targets around the usable board. Do this before assembly guidance.
 
+11. **Part perception:** `python main.py perceive`. Needs step 2 and step 4 only — it is independent of the projector chain, so it can be demonstrated before calibration is solved. Place one part at a time into a still workspace; the window reports the observed board pose and the correction. `--steps FILE.json` replaces the mock CAD sequence. Measure your real parts into `perception/part_catalog.py` and tune their HSV ranges under venue light first, or nothing will be recognised.
+
 Equivalent modules run with `python -m calibration.webcam_smoketest`, etc. Do not run files directly by path; module execution keeps imports consistent.
 
 ## Shared geometry and data contracts
@@ -56,23 +58,55 @@ T_projector_board = T_projector_camera @ T_camera_board
 - Each collected point saves exact rendered projector UV, raw camera UV, board XYZ, its measured camera rvec/tvec, ArUco RMS, and visible IDs. Each pose includes camera-calibration and fixture fingerprints to prevent mixed datasets.
 - New camera calibration, fixture geometry, resolution, projector geometry settings, or relative mount movement requires reconsidering/recollecting calibration. Settings and physical mount changes cannot be detected automatically from file fingerprints.
 
-Future perception interface:
+## Perception: expected-part detection and placement validation
+
+Answers one constrained question — *we expect part X now; did X appear, where, and is it right?* — never open-set object recognition. `perception.pipeline.detect_and_validate(frame_before, frame_after, expected_part, board_pose, camera_matrix, dist_coeffs)` returns:
 
 ```json
 {
   "detected": true,
   "correct_part": true,
-  "part_id": "example",
-  "observed_pose": {"x_mm": 0, "y_mm": 0, "z_mm": 0, "theta_deg": 0},
-  "confidence": 0.0
+  "part_id": "red_l_plate",
+  "observed_pose": {"x_mm": 118.2, "y_mm": 92.5, "z_mm": 0.0, "theta_deg": 17.3},
+  "confidence": 0.91
 }
 ```
 
-Perception must use the same board frame. Define yaw sign/origin with the teammate before integration. Fusion supplies a part ID and CAD target pose; later register CAD to board/world with `T_world_part = T_world_CAD @ T_CAD_part`. No Fusion API or servo behavior is implemented here. Later servo sequence: move → settle → reacquire ArUco pose → project; commanded servo angles are not world-pose measurements.
+Pass `expected_pose` as well and `result.error` carries `correct`, `dx_mm`, `dy_mm`, `dtheta_deg`. `result.status` is one of `ok | no_change | not_found | wrong_part | low_confidence | wrong_position | wrong_angle | wrong_position_and_angle`.
+
+```text
+perception/change_detector.py  before/after diff -> changed region. LOCALISATION ONLY.
+perception/part_matcher.py     HsvOutlineMatcher: is this the expected part?
+perception/part_catalog.py     per-part HSV + top-down outline (mm) -- EDIT THIS for real parts
+perception/pose_estimator.py   template-alignment x/y/theta, and the px -> board mm bridge
+perception/validator.py        observed vs CAD target -> the correction to apply
+perception/pipeline.py         detect_and_validate(...), the front door
+assembly/state_machine.py      baseline + stillness + step sequencing
+assembly/demo_perception.py    python main.py perceive
+```
+
+**Conventions, now fixed** (the yaw sign/origin this README previously left open):
+
+- **`theta_deg`** is the angle of the part's **+x axis in the BOARD frame**, CCW from board +x toward board +y, in `[0, 360)`. It is derived by mapping a direction through the board plane, never by reusing an image-space angle, so the upside-down mount and perspective cannot leak into it. A test asserts the same physical placement reports the same angle with the camera rolled 180°.
+- **`theta_deg = 0`** means the part lies exactly like its `outline_mm` polygon in `part_catalog.py`. The drawing, not the code, defines each part's zero.
+- **`x_mm` / `y_mm`** are the **area centroid of the part silhouette**, not the origin of its outline drawing. **The CAD target pose must use the same reference point.**
+- **Angle errors are folded by `symmetry_deg`.** A 2×4 brick placed end for end is not an error; an asymmetric part placed backwards is a 180° error.
+- **`dx_mm`, `dy_mm`, `dtheta_deg` are the correction still to apply** (`expected - observed`), in board axes. Turning `+X` into a LEFT/RIGHT arrow depends on where the user stands and where the projector is, so that mapping belongs to the projection subsystem, not here.
+- **Undistorted pixels.** Detection and pose run on undistorted frames in the same K, because lens distortion bends a silhouette before its angle is measured and cannot be undone afterwards. Board geometry then uses `perception.geometry.board_point_from_undistorted_pixel`, the sibling of `camera_pixel_to_board`; feeding undistorted pixels to the latter would undistort them twice. Parts are assumed to sit on the base plane z=0.
+- **Marker quads are excluded** from the change search, so markers never become candidate parts.
+- **Call `set_baseline()` at SHOW_NEXT_STEP, before the user reaches in**, and with the projector showing whatever it will show during the step — its light contaminates the camera image. `AssemblyState` re-baselines automatically when a step completes.
+
+Fusion supplies a part ID and CAD target pose; later register CAD to board/world with `T_world_part = T_world_CAD @ T_CAD_part`. `Step.from_dict` already accepts `{"part_id", "target_pose"}` and keeps unknown keys. No Fusion API or servo behavior is implemented here. Later servo sequence: move → settle → reacquire ArUco pose → project; commanded servo angles are not world-pose measurements.
+
+**Known perception limitations.** Same-coloured parts touching each other merge into one blob (→ `low_confidence`). A part that is its own mirror image cannot be flip-detected — `yellow_l_plate` has equal arms and is exactly this case, so prefer chiral outlines with strong concavities. Near-rectangles fit poorly at any angle. Webcam autofocus and auto-exposure drift shift the colours, and autofocus also changes the intrinsics. Perspective shear grows with camera tilt; the alignment assumes a roughly overhead view. **Every HSV range and outline in `part_catalog.py` is a placeholder measured from nominal LEGO geometry, not from your bricks under your light.**
 
 ## Verification
 
-`python -m unittest discover -s tests -v` runs synthetic checks of distorted raw-pixel geometry, upside-down ArUco detection, multi-marker pose, transform composition, green detection, rigid-calibration recovery, and rejection of moving-mount/degenerate data. It does not replace hardware calibration or physical error measurements.
+`python -m unittest discover -s tests -v` runs 93 synthetic checks of distorted raw-pixel geometry, upside-down ArUco detection, multi-marker pose, transform composition, green detection, rigid-calibration recovery, rejection of moving-mount/degenerate data, and the whole perception slice — silhouette alignment across the full circle, part pose recovered in board millimetres through the real lens model and the upside-down mount, hand and marker rejection, wrong-part naming, symmetry folding, and step sequencing. It does not replace hardware calibration or physical error measurements.
+
+Perception is validated **synthetically only**: parts are rendered as flat polygons, projected through the lens model, and recovered. Over 45 placements (3×3 board positions × 5 angles, camera 600 mm up and rolled 180°, 2.5 px/mm): position error mean **0.10 mm**, max 0.24 mm; angle error mean **0.25°**, max 0.77°; **94 ms** mean per `detect_and_validate` call at 1080p, of which roughly a third is the two `cv2.undistort` calls that `AssemblyState` avoids repeating.
+
+Those numbers measure the geometry, not the world. No real webcam frame, no real brick, and no venue lighting has been through this yet. Real accuracy will be set by segmentation quality — HSV tuning, shadow, glare, projector light on the part — not by the alignment, and it will be worse. Measure it on hardware before trusting any of it.
 
 Initial verification on this machine: Python 3.11.16, OpenCV 4.14.0, NumPy 2.4.6; all 10 synthetic tests passed and `pip check` reported no dependency conflicts. Camera index 0 captured 10 raw 1920×1080 frames successfully outside the execution sandbox. Only the primary 1920×1200 laptop display was enumerated. No real intrinsic/projector calibration or physical world-lock validation has been completed yet.
 
