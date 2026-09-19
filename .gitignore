@@ -1,0 +1,8 @@
+.conda-env/
+.conda-pkgs/
+.venv/
+__pycache__/
+*.py[cod]
+*.npz
+data/
+.pytest_cache/
