@@ -90,7 +90,7 @@ def combined_fit(ids, observations, rotations, K, dist, minimum):
     result.update(fit_pose(objects, pixels, K, dist), available=True)
     if result['solvepnp_succeeded'] and result['projected_points'] is not None:
         r, t = np.array(result['rvec']), np.array(result['tvec'])
-        # Include held-out marker 2 in EVALUATION, never in the 0/1/3 fit.
+        # Evaluate every observed marker, including those excluded from this fit.
         for i, observed in sorted(observations.items()):
             if i not in config.MARKER_CENTERS_MM:
                 continue
@@ -113,6 +113,8 @@ def compare_poses(debug, K, dist, rotations, audit, display_fit='subset'):
     known_ids = sorted(i for i in observations if i in config.MARKER_CENTERS_MM)
     full = combined_fit(known_ids, observations, rotations, K, dist, config.MIN_VISIBLE_MARKERS)
     subset = combined_fit(SUBSET_IDS, observations, rotations, K, dist, len(SUBSET_IDS))
+    rows = {name: combined_fit(ids, observations, rotations, K, dist, 2)
+            for name, ids in [('top_01', (0, 1)), ('bottom_23', (2, 3))]}
     mappings = {}
     for i in known_ids:
         declared = rotations[i]
@@ -136,7 +138,7 @@ def compare_poses(debug, K, dist, rotations, audit, display_fit='subset'):
     all_solve = all(f['solvepnp_succeeded'] for f in known_fits) if complete else None
     all_pass = all(f['passes_checks'] for f in known_fits) if complete else None
     contrast = (bool(all_pass and not full['passes_checks']) if complete and full['available'] else None)
-    report = dict(individuals=individuals, full_board=full, subset_013=subset,
+    report = dict(individuals=individuals, full_board=full, subset_013=subset, row_fits=rows,
                   solver='SOLVEPNP_ITERATIVE', camera_matrix=np.asarray(K).tolist(),
                   dist_coeffs=np.asarray(dist).tolist(), marker_size_mm=config.MARKER_SIZE_MM,
                   marker_centers_mm={i: list(xy) for i, xy in config.MARKER_CENTERS_MM.items()},
@@ -188,6 +190,11 @@ def comparison_lines(report, detailed=False):
     for i, error in report['subset_013']['per_marker_residuals'].items():
         role = 'in fit' if error['in_fit'] else 'HELD OUT'
         lines.append(f"  ID {i} ({role}): RMS={error['rms_px']:.3f}, mean={error['mean_px']:.3f}, max={error['max_px']:.3f} px")
+    for name, fit in report['row_fits'].items():
+        lines.append(f"Row {name}: solve={fit['solvepnp_succeeded']}, RMS={number(fit['rms_px'])} px, positive depth={fit.get('positive_depth')}")
+        for i, error in fit['per_marker_residuals'].items():
+            role = 'in fit' if error['in_fit'] else 'HELD OUT'
+            lines.append(f"  ID {i} ({role}): RMS={error['rms_px']:.3f}, max={error['max_px']:.3f} px; corners={np.round(error['corner_errors_px'], 3).tolist()}")
     lines += [f"All individual solvers succeed: {report['individual_solvers_succeeded']}",
               f"Individuals pass but combined board fails: {report['individuals_pass_combined_fails']}",
               'Corner indices: 0=canonical TL, 1=TR, 2=BR, 3=BL; never screen-sort.']
@@ -210,7 +217,8 @@ def annotate_comparison(raw, debug, report):
     """Return an UNROTATED copy with canonical numbered D/P correspondences."""
     view = raw.copy()
     mode = report['display_fit']
-    fit = report['subset_013'] if mode == 'subset' else report['full_board']
+    fit = (report['row_fits'][mode] if mode in ('top_01', 'bottom_23') else
+           report['subset_013'] if mode == 'subset' else report['full_board'])
     font = cv2.FONT_HERSHEY_SIMPLEX
 
     def label(text, point, color):

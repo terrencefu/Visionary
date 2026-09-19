@@ -8,22 +8,28 @@ PREVIEW_ROTATE_180 = True
 CAMERA_CALIBRATION = ROOT / "camera_calibration_1080p.npz"
 PROJECTOR_CALIBRATION = ROOT / "projector_calibration.npz"
 DATA_DIR = ROOT / "data"
+PLANAR_CALIBRATION = ROOT / "planar_calibration.json"
+PLANAR_RANSAC_PX = 3.0
+PLANAR_MIN_COVERAGE = 0.20  # Inlier convex hull / usable board area.
+PLANAR_VALIDATION_MAX_MM = 5.0
 
 ARUCO_DICTIONARY = "DICT_4X4_50"
 # No defaults from the old temporary fixture. All marker tops face board -Y.
 MARKER_SIZE_MM = 30.0  # User confirmed black-square measurement, excluding white border.
 # Origin: marker 0 center. +X points toward marker 1; +Y toward the lower row.
-# User remeasured: both horizontal spacings 493 mm; both vertical spacings 305 mm.
-# Coordinates explicitly supplied by the user; supersede the earlier diagonal estimate.
+# Latest approximate centers: horizontal spacing 303 mm; left 203 mm, right 204 mm.
+# Preserve the measured asymmetry using the coordinates supplied by the user.
 MARKER_CENTERS_MM = {
     0: (0.0, 0.0),
-    1: (493.0, 0.0),
-    2: (0.0, 305.0),
-    3: (493.0, 305.0),
+    1: (303.0, 0.0),
+    2: (0.0, 203.0),
+    3: (303.0, 204.0),
 }
-BOARD_BOUNDS_MM = None  # (min_x, min_y, max_x, max_y), actual flat surface
+# Interior calibration region; visually verify the dots actually hit flat cardboard.
+BOARD_BOUNDS_MM = (30.0, 30.0, 273.0, 173.0)
 MIN_VISIBLE_MARKERS = 3
-MAX_ARUCO_RMS_PX = 2.0
+MAX_ARUCO_RMS_PX = 3.0
+COLLECTOR_MAX_ARUCO_RMS_PX = 5.0  # Projector collection only; tighten here later.
 
 # --- Perception: part detection and placement validation ---------------------
 # Consecutive still frames required before anything is measured. Raise it if
@@ -46,8 +52,9 @@ MIN_GREEN_DOMINANCE = 20
 MIN_DOT_AREA_PX = 12
 MAX_DOT_AREA_PX = 30000
 SETTLE_SECONDS = 0.5
-GRID_MARGIN_X = 0.25
-GRID_MARGIN_Y = 0.25
+# Inclusive projector-pixel bounds for calibration collection.
+GRID_U_RANGE_PX = (520, 1160)
+GRID_V_RANGE_PX = (470, 610)
 GRID_COLS = 5
 GRID_ROWS = 4
 MAX_BOARD_DRIFT_PX = 1.5

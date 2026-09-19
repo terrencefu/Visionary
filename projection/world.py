@@ -5,15 +5,19 @@ from calibration.common import camera_signature, fixture_signature
 from perception.geometry import pose_matrix
 
 
-def load_projector():
+def load_projector(*, allow_experimental=False):
     if not config.PROJECTOR_CALIBRATION.exists():
         raise FileNotFoundError("Missing projector_calibration.npz. Collect rigid-mount poses and solve first.")
     with np.load(config.PROJECTOR_CALIBRATION, allow_pickle=False) as data:
+        experimental = bool(data["experimental"]) if "experimental" in data else False
         if (tuple(data["image_size"]) != config.PROJECTOR_SIZE
                 or str(data["camera_signature"]) != camera_signature()
                 or str(data["fixture_signature"]) != fixture_signature()
-                or not bool(data["quality_passed"])):
+                or (not bool(data["quality_passed"]) and not (allow_experimental and experimental))
+                or (experimental and not allow_experimental)):
             raise ValueError("Projector calibration does not match current camera, fixture, resolution, or quality gate.")
+        if experimental:
+            print("EXPERIMENTAL / UNVALIDATED projector calibration; accuracy checks may have failed.")
         return data["camera_matrix"].copy(), data["dist_coeffs"].copy(), data["T_projector_camera"].copy()
 
 

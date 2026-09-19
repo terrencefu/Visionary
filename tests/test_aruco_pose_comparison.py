@@ -55,6 +55,21 @@ class PoseComparisonTests(unittest.TestCase):
         self.assertLess(report['subset_013']['rms_px'], 1e-4)
         self.assertAlmostEqual(report['full_board']['rms_px'], debug.rms_error_px, places=9)
 
+    def test_row_fits_evaluate_but_do_not_fit_opposite_row(self):
+        flat, _, _, _ = self.scene()
+        moved, _, _, _ = self.scene(heights={2:100., 3:100.})
+        for name, ids in [('top_01', [0, 1]), ('bottom_23', [2, 3])]:
+            fit = flat['row_fits'][name]
+            self.assertEqual(fit['ids'], ids)
+            self.assertLess(fit['rms_px'], 1e-4)
+            for i, error in fit['per_marker_residuals'].items():
+                self.assertEqual(error['in_fit'], i in ids)
+                self.assertLess(error['rms_px'], 1e-4)
+        top = moved['row_fits']['top_01']
+        self.assertLess(top['rms_px'], 1e-4)
+        self.assertGreater(top['per_marker_residuals'][2]['rms_px'], 5.)
+        self.assertGreater(top['per_marker_residuals'][3]['rms_px'], 5.)
+
     def test_lifted_marker_two_is_held_out_of_subset_not_of_evaluation(self):
         # Deliberately large synthetic separation exercises the failure branch;
         # it is not an estimate of the physical fixture's lift.

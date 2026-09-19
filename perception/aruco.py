@@ -61,17 +61,21 @@ def marker_corners(marker_id):
 
 
 class BoardTracker:
-    def __init__(self, K, dist):
+    def __init__(self, K, dist, *, max_rms_px=None):
         config.validate_fixture(require_bounds=False)
         self.K, self.dist = K, dist
+        self.max_rms_px = max_rms_px
+        if max_rms_px is not None and (not np.isfinite(max_rms_px) or max_rms_px <= 0):
+            raise ValueError("max_rms_px must be finite and positive.")
         self.detector = make_detector()
         self.last_diagnostics = None
 
     def estimate(self, raw):
         # The detector, correspondences, solvePnP method and acceptance gates are
         # unchanged. Diagnostics retain the evidence before each existing return.
+        limit = config.MAX_ARUCO_RMS_PX if self.max_rms_px is None else self.max_rms_px
         debug = PoseDiagnostics(required_markers=config.MIN_VISIBLE_MARKERS,
-                                max_acceptable_rms_px=config.MAX_ARUCO_RMS_PX)
+                                max_acceptable_rms_px=limit)
         self.last_diagnostics = debug
         corners, ids, _ = self.detector.detectMarkers(raw)
         debug.corners = corners
@@ -125,17 +129,18 @@ class BoardTracker:
             debug.per_marker_errors[marker_id] = dict(
                 mean=float(np.mean(marker_errors)), max=float(np.max(marker_errors)),
                 rms=float(np.sqrt(np.mean(marker_errors**2))), corners=marker_errors.tolist())
-        behind = int(np.count_nonzero((obj @ R.T + tvec.reshape(3))[:, 2] <= 0))
-        if not np.isfinite(rms) or rms > config.MAX_ARUCO_RMS_PX or behind:
+        depths = (obj @ R.T + tvec.reshape(3))[:, 2]
+        behind = int(np.count_nonzero(~np.isfinite(depths) | (depths <= 0)))
+        if not np.isfinite(rms) or rms > limit or behind:
             reasons = []
             if not np.isfinite(rms):
                 reasons.append("Non-finite reprojection RMS")
-            elif rms > config.MAX_ARUCO_RMS_PX:
-                reasons.append(f"Reprojection RMS {rms:.3f} px exceeds limit {config.MAX_ARUCO_RMS_PX:.3f} px")
+            elif rms > limit:
+                reasons.append(f"Reprojection RMS {rms:.3f} px exceeds limit {limit:.3f} px")
             if behind:
-                reasons.append(f"{behind}/{len(obj)} marker corners are at or behind the camera (depth <= 0)")
+                reasons.append(f"{behind}/{len(obj)} marker corners have non-finite or non-positive depth")
             code = "nonfinite_reprojection" if not np.isfinite(rms) else (
-                "reprojection_error" if rms > config.MAX_ARUCO_RMS_PX else "nonpositive_depth")
+                "reprojection_error" if rms > limit else "nonpositive_depth")
             debug.reject(code, "; ".join(reasons) + ".")
             return None
         return BoardPose(rvec, tvec, R, [i for i, _ in known], rms, obj, img)

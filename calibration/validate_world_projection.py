@@ -15,9 +15,10 @@ from projection.world import load_projector, board_point_to_projector
 def main():
     parser = argparse.ArgumentParser(description="Independently measure physical world-lock error in mm.")
     parser.add_argument("--target", nargs=2, type=float, metavar=("X_MM", "Y_MM"))
+    parser.add_argument("--experimental", action="store_true", help="Allow an explicitly experimental, UNVALIDATED calibration.")
     args = parser.parse_args()
     tracker = BoardTracker(*load_camera())
-    Kp, dp, Tpc = load_projector()
+    Kp, dp, Tpc = load_projector(allow_experimental=args.experimental)
     x0, y0, x1, y1 = config.BOARD_BOUNDS_MM
     xy = args.target if args.target else [(x0+x1)/2, (y0+y1)/2]
     target = np.array([*xy, 0.0])
@@ -30,7 +31,8 @@ def main():
         while True:
             raw = camera.read()
             pose = tracker.estimate(raw)
-            show_preview(raw, f"Target {xy} mm | Board {'READY' if pose else 'NOT READY'} | Space: measure | Esc: exit")
+            label = "EXPERIMENTAL / UNVALIDATED | " if args.experimental else ""
+            show_preview(raw, label + f"Target {xy} mm | Board {'READY' if pose else 'NOT READY'} | Space: measure | Esc: exit")
             key = cv2.waitKey(1) & 0xFF
             if key in (27, ord('q')):
                 break

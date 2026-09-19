@@ -75,24 +75,38 @@ def main():
     parser = argparse.ArgumentParser(description="Solve inverse-camera intrinsics and a fixed camera->projector transform.")
     parser.add_argument("--data", type=Path, default=config.DATA_DIR)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--experimental", action="store_true",
+                        help="Export existing solve diagnostics unchanged as UNVALIDATED, even if accuracy checks fail.")
     args = parser.parse_args()
     if config.PROJECTOR_CALIBRATION.exists() and not args.overwrite:
         raise ValueError("Projector calibration exists; use --overwrite to replace it.")
     poses = load_poses(args.data)
-    result = solve(poses)
+    diagnostics = args.data / "projector_solve_diagnostics.npz"
+    if args.experimental:
+        with np.load(diagnostics, allow_pickle=False) as saved:
+            result = {key: saved[key].copy() for key in saved.files}
+        if not all(np.isfinite(value).all() for value in result.values()):
+            raise ValueError("Cannot export non-finite diagnostic results.")
+    else:
+        result = solve(poses)
     print(f"Projector RMS: {result['rms']:.3f} px; fixed-rig RMS: {result['fixed_rms']:.3f} px")
     for i, pose in enumerate(poses):
         print(f"{pose['name']}: RMS {result['per_view_rms'][i]:.2f} px, relative transform deviation "
               f"{result['rotation_spread_deg'][i]:.2f} deg / {result['translation_spread_mm'][i]:.2f} mm")
     args.data.mkdir(parents=True, exist_ok=True)
-    np.savez(args.data / "projector_solve_diagnostics.npz", **result)
+    if not args.experimental:
+        np.savez(diagnostics, **result)
     failures = quality_failures(result)
-    if failures:
+    if failures and not args.experimental:
         raise ValueError("Calibration NOT published: " + "; ".join(failures) +
                          ". Inspect correspondences and rigid mount; diagnostics saved in data directory.")
     np.savez(config.PROJECTOR_CALIBRATION, **result, image_size=config.PROJECTOR_SIZE,
              fixture_signature=fixture_signature(), camera_signature=camera_signature(),
-             pose_names=[p["name"] for p in poses], quality_passed=True)
+             pose_names=[p["name"] for p in poses], quality_passed=not failures,
+             experimental=args.experimental, validation_status="UNVALIDATED",
+             quality_failures=np.asarray(failures, dtype=str))
+    if args.experimental:
+        print("EXPERIMENTAL / UNVALIDATED: " + ("; ".join(failures) or "Physical validation pending."))
     print(f"Saved {config.PROJECTOR_CALIBRATION}. Physically validate world locking before using it for assembly.")
 
 

@@ -13,6 +13,7 @@ TOOLS = {
     "diagnose": "calibration.check_calibration_correspondences",
     "solve": "calibration.solve_projector_calibration",
     "validate": "calibration.validate_world_projection",
+    "planar": "calibration.planar",
     "perceive": "assembly.demo_perception",
 }
 

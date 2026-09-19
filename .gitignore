@@ -4,5 +4,6 @@
 __pycache__/
 *.py[cod]
 *.npz
+planar_calibration.json
 data/
 .pytest_cache/
