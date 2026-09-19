@@ -1,0 +1,10 @@
+{
+    "autodeskProduct": "Fusion",
+    "type": "script",
+    "author": "Visionary",
+    "description": {
+        "": "Exports Fusion assembly data for Visionary."
+    },
+    "supportedOS": "windows|mac",
+    "editEnabled": true
+}
