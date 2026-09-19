@@ -1,4 +1,4 @@
-name: assembly-copilot
+name: hackthenorth
 channels:
   - conda-forge
 dependencies:

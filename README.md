@@ -8,20 +8,21 @@ Hackathon MVP: establish a measured ArUco world frame, calibrate a rigid camera/
 - Camera index **0**, raw **1920×1080**. The camera is upside down. Geometry always uses raw frames; only the annotated human preview rotates 180°.
 - Projector: Windows **Extend**, **1920×1080**, non-primary monitor. Keep Windows scaling at 100% on the projector and verify the smoke test fills the display.
 - Marker dictionary **DICT_4X4_50**, black-square size **30 mm** (confirmed). All markers have the same physical orientation.
-- **Marker centers and flat-board bounds are not yet measured.** Enter them in `config.py`. Old fixture dimensions and old calibration numbers are not included.
+- Marker centers in `config.py` follow the user's remeasurement: 493 mm top/bottom and 305 mm left/right. IDs 0–3 are `(0,0)`, `(493,0)`, `(0,305)`, `(493,305)` mm respectively. These explicitly supplied coordinates supersede the earlier approximate diagonal reconstruction. Marker 0 is the origin; +X points toward marker 1 and +Y toward the lower row. The user separately confirmed the 30 mm black-square side, excluding the white border.
+- **Flat-board bounds still need measuring.** Set `BOARD_BOUNDS_MM` before projector collection or validation. ArUco pose testing can run without these bounds. Old fixture dimensions and old calibration numbers are not included.
 
 ## Environment
 
 A local fresh environment can be created from the repository root:
 
 ```powershell
-conda env create --prefix .\.conda-env --file environment.yml
-conda activate .\.conda-env
+conda env create --file environment.yml
+conda activate hackthenorth
 ```
 
-On the original development machine, the already-tested environment is in the parent `HackTheNorth` folder. From this `Visionary` checkout, use `& ..\.conda-env\python.exe` in place of `python` (for example, `& ..\.conda-env\python.exe main.py webcam`). It stays outside Git; no environment relocation is needed.
+The project uses the named environment `hackthenorth`. On the original development machine it lives at `C:\Users\terre\miniconda3\envs\hackthenorth`; the previous `.conda-env` in the parent folder is retained as a separate environment.
 
-If the environment already exists, activate it. If Conda is not on PATH, use `& "$env:USERPROFILE\miniconda3\Scripts\conda.exe"` instead of `conda`, or call `& .\.conda-env\python.exe` directly instead of `python` below. Do not install another OpenCV package alongside `opencv-contrib-python`.
+If the environment already exists, activate it. If Conda is not initialized in your shell, open Anaconda Prompt and run `conda activate hackthenorth`. Alternatively, on the original development machine, call `& "$env:USERPROFILE\miniconda3\envs\hackthenorth\python.exe"` directly instead of `python` below. Do not install another OpenCV package alongside `opencv-contrib-python`.
 
 ## Run in this order
 
@@ -30,7 +31,7 @@ Run commands from the repository root. Every step is independent; stop and fix a
 1. **Webcam:** `python main.py webcam`. A bounded capture check is `python main.py webcam --frames 10 --no-preview`. A resolution mismatch fails instead of silently resizing.
 2. **Camera intrinsics:** `python main.py camera-calibration --square-mm 25`. Measure the actual printed square; 25 mm is only the starting value. Use a **9×6 inner-corner** chessboard. Space captures; vary tilt, distance, and coverage across the image. Aim for 30 sharp views; C solves with at least 15. Saves `camera_calibration_1080p.npz` with `camera_matrix`, `dist_coeffs`, image size, RMS, and per-view errors. Review errors before proceeding; replacing a calibration requires `--overwrite`.
 3. **ArUco detection:** `python main.py aruco --detect-only`. No fixture measurements or intrinsics needed for this mode.
-4. **Board pose:** enter `MARKER_CENTERS_MM` and `BOARD_BOUNDS_MM` in `config.py`, then `python main.py aruco`. Needs at least 3 configured markers and a low corner reprojection error. Measures the black square, excluding the white border. Define +X to marker-right and +Y to marker-bottom; all marker tops face -Y. Centers are in mm. Bounds are `(min_x, min_y, max_x, max_y)` of the actual flat surface, not automatically the marker-center rectangle. Axes show X red, Y green, Z blue.
+4. **Board pose:** check `MARKER_CENTERS_MM` in `config.py`, then run `python main.py aruco` after camera intrinsic calibration. Needs at least 3 configured markers and a low corner reprojection error. Measures the black square, excluding the white border. Define +X to marker-right and +Y to marker-bottom; all marker tops face -Y. Centers are in mm. Before projector collection, set `BOARD_BOUNDS_MM` to `(min_x, min_y, max_x, max_y)` of the actual flat surface, not automatically the marker-center rectangle. Axes show X red, Y green, Z blue.
 5. **Second display:** `python main.py projector --list`, then `python main.py projector`. Auto-selects only when exactly one non-primary display is present. B displays black; D displays a green center dot at (960,540). Set `PROJECTOR_MONITOR_INDEX` if needed. Verify exact pixel mapping physically.
 6. **Green-dot detection:** `python main.py dot`. Measures increased green AND green dominance after black/dot settling. Shows the threshold mask, raw camera centroid, and area. Space repeats. Lock camera exposure/white balance/focus through its vendor controls if possible; reject reflections, clipped dots, or unstable exposure before collection.
 7. **Collect projector correspondences:** finish the rigid mount first. Disable auto-keystone/dynamic geometry and keep focus/zoom/settings fixed. Run `python main.py collect --rigid-mount-ready`. Space starts a 5×4 grid in the central 50% of the projector. Hold both rig and board stationary through the grid. Captures outside the board region, overlapping marker ink, with ambiguous blobs, or with board movement are rejected. At least 8 valid points are required to save one `data/pose_*.json` file. Re-run for **6–8 poses**, varying both tilt and depth by moving the whole rigid camera/projector pair relative to the board. Merely sliding a board flat is insufficient. Recheck the surface is flat and fully covers the configured bounds; a camera ray alone cannot prove a dot landed on that plane.
@@ -41,6 +42,42 @@ Run commands from the repository root. Every step is independent; stop and fix a
 11. **Part perception:** `python main.py perceive`. Needs step 2 and step 4 only — it is independent of the projector chain, so it can be demonstrated before calibration is solved. Place one part at a time into a still workspace; the window reports the observed board pose and the correction. `--steps FILE.json` replaces the mock CAD sequence. Measure your real parts into `perception/part_catalog.py` and tune their HSV ranges under venue light first, or nothing will be recognised.
 
 Equivalent modules run with `python -m calibration.webcam_smoketest`, etc. Do not run files directly by path; module execution keeps imports consistent.
+
+## ArUco rejection diagnostics
+
+`python main.py aruco` shows a diagnostic panel beside the rotated preview and logs a report once per second, including rejected frames. It lists every detected ID, configured matches and unknown IDs, known/used marker counts, solvePnP success (or not attempted), mean/maximum/RMS corner reprojection error, the configured RMS threshold, and the exact rejection reason. The original detector settings, `SOLVEPNP_ITERATIVE` call, 2.0 px RMS gate, and positive-depth check are unchanged. Mean and maximum errors are diagnostic values; the gate still uses RMS.
+
+Per-marker residuals help locate a bad correspondence. Cyan arrows follow each detected marker's decoded canonical corner 0 to corner 1; magenta dots show the model-projected corners and yellow lines show residuals, including rejected poses. All geometric calculations stay in RAW camera coordinates. Only the human preview rotates.
+
+Startup output lists the loaded config/calibration paths, configured centers, 30 mm black-square side, assumed 0-degree physical rotation for each marker, and computed pairwise spacings. The current model uses the user's remeasured 493 mm horizontal and 305 mm vertical spacings. With all four unique known markers visible, a **diagnostic-only** homography fitted to marker centers estimates each printed marker's rotation and side lengths in the board frame. This audit is not used to modify or accept a pose. It depends on the center measurements, lens calibration, and a flat board, so it cannot independently certify the fixture dimensions. All marker rotations are currently modeled as zero; no rotated-marker compensation is applied automatically.
+
+Press **S** to save the current raw frame, annotated preview, and full report under `data/aruco_debug/`. A bounded terminal-only capture and an offline replay are also available:
+
+```powershell
+python main.py aruco --frames 30 --no-preview --save-debug data/aruco_debug
+python main.py aruco --image data/aruco_debug/raw.png --no-preview
+```
+
+Use the saved **raw.png**, not the rotated preview, for replay. The capture saves its final frame; press S interactively to preserve a particular failing frame. The diagnostic folder is ignored by Git. Confirm physical rotations against the cyan corner-direction arrows and remeasure the black square (excluding the white border) before attributing large residuals to calibration quality.
+
+### Independent-marker and 0/1/3 pose comparison
+
+Run `python main.py aruco --diagnose-poses` to add **diagnostic-only** fits alongside the unchanged production pose:
+
+- Fit each detected marker independently using its four decoded canonical corners, the configured 30 mm side, and the current intrinsics/distortion. Print solver success, RMS and positive-depth/RMS acceptance. The local origin is the marker center, with X right and Y down in its canonical drawing.
+- Fit the complete `[0,1,3]` subset without marker 2. If any of those IDs is missing or duplicated, report unavailable instead of silently choosing different markers. Print the subset RMS and residuals for every visible configured marker, including marker 2 explicitly labeled **HELD OUT**.
+- Compare individual fits with an all-known-marker diagnostic fit and the original production result. Individual RMS below 2 px does not establish accurate depth, scale or camera calibration: each individual fit only constrains four corners.
+- Open a separate **RAW / UNROTATED** window with numbered green detected corners `D0..D3` and magenta projected corners `P0..P3`, linked by residual lines. The ordinary human preview retains its existing 180-degree rotation. The raw view defaults to the 0/1/3 fit; use `--diagnostic-fit individual` or `--diagnostic-fit all` for the other comparisons.
+
+Corner numbers follow the decoded printed marker: `0=TL, 1=TR, 2=BR, 3=BL`, never sorted by screen position. For the user-confirmed same-orientation fixture, all declared rotations default to zero. The terminal/report lists each canonical index's exact board XYZ and detected RAW UV, along with the image-based orientation audit. If a marker's actual printed rotation is known to differ, `--marker-rotation 2=90` declares it **only for diagnostic fits** (repeat for other IDs). Positive angles turn board +X toward +Y. For +90 degrees, canonical corners 0/1/2/3 map to physical board TR/BR/BL/TL. No detector corners are reordered, no rotation is inferred and applied automatically, and the production tracker/configuration is not modified. See [OpenCV's corner-order documentation](https://docs.opencv.org/4.11.0/d5/dae/tutorial_aruco_detection.html) and [planar solvePnP requirements](https://docs.opencv.org/4.9.0/d5/d1f/calib3d_solvePnP.html).
+
+Press **S** to save the comparison JSON and numbered `correspondence_raw.png` at original resolution, plus `correspondence_panel_raw.png` with the report alongside it. Analyze an existing failing frame without reopening the camera:
+
+```powershell
+python main.py aruco --diagnose-poses --image data/aruco_debug/raw.png --no-preview --save-debug data/aruco_pose_comparison
+```
+
+Interpretation: if individuals pass and the full-board fit fails, investigate the shared planar geometry, physical marker orientation/height, and lens model. If 0/1/3 passes but marker 2's held-out residual is large, that localizes an inconsistency to marker 2 relative to those three. If 0/1/3 also fails, excluding marker 2 is insufficient. These comparisons alone cannot prove cardboard lift is the sole cause. This mode never changes the calibration file, measured fixture geometry, marker size, 2 px threshold, or the set of markers used by the production tracker.
 
 ## Shared geometry and data contracts
 

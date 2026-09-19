@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-CAMERA_INDEX = 0
+CAMERA_INDEX = 0  # DirectShow: webcam AC310 = 0; Integrated Camera = 1 on this setup.
 CAMERA_SIZE = (1920, 1080)
 PREVIEW_ROTATE_180 = True
 CAMERA_CALIBRATION = ROOT / "camera_calibration_1080p.npz"
@@ -11,15 +11,15 @@ DATA_DIR = ROOT / "data"
 
 ARUCO_DICTIONARY = "DICT_4X4_50"
 # No defaults from the old temporary fixture. All marker tops face board -Y.
-MARKER_SIZE_MM = 30.0
+MARKER_SIZE_MM = 30.0  # User confirmed black-square measurement, excluding white border.
 # Origin: marker 0 center. +X points toward marker 1; +Y toward the lower row.
-# Center distances: 0-1=493, 0-2=310, 1-3=305, 2-3=493 mm.
-# Estimated from the approximate 0-3 diagonal of 580 mm; refine for final calibration.
+# User remeasured: both horizontal spacings 493 mm; both vertical spacings 305 mm.
+# Coordinates explicitly supplied by the user; supersede the earlier diagonal estimate.
 MARKER_CENTERS_MM = {
     0: (0.0, 0.0),
     1: (493.0, 0.0),
-    2: (0.36, 310.0),
-    3: (493.33, 305.0),
+    2: (0.0, 305.0),
+    3: (493.0, 305.0),
 }
 BOARD_BOUNDS_MM = None  # (min_x, min_y, max_x, max_y), actual flat surface
 MIN_VISIBLE_MARKERS = 3

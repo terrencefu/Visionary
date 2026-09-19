@@ -1,3 +1,5 @@
 opencv-contrib-python>=4.10,<5
 numpy>=1.26,<3
 screeninfo>=0.8,<1
+pandas
+matplotlib
