@@ -617,6 +617,551 @@ def analyze_candidate_directions(
     return results
 
 
+
+# ==========================================================
+# CAD motion / collision testing
+# ==========================================================
+
+def make_translation_matrix(vector, distance):
+    """Create a Fusion translation matrix for vector * distance."""
+
+    transform = adsk.core.Matrix3D.create()
+
+    translation = adsk.core.Vector3D.create(
+        vector[0] * distance,
+        vector[1] * distance,
+        vector[2] * distance
+    )
+
+    transform.translation = translation
+
+    return transform
+
+
+def translate_bounding_box(box, direction, distance):
+    """Translate an axis-aligned bounding box along a direction."""
+
+    offset = [
+        direction[0] * distance,
+        direction[1] * distance,
+        direction[2] * distance
+    ]
+
+    return {
+        "min": [
+            box["min"][0] + offset[0],
+            box["min"][1] + offset[1],
+            box["min"][2] + offset[2]
+        ],
+        "max": [
+            box["max"][0] + offset[0],
+            box["max"][1] + offset[1],
+            box["max"][2] + offset[2]
+        ]
+    }
+
+
+def aabb_overlaps(box_a, box_b, tolerance=0.0):
+    """Return True when two AABBs overlap within a tolerance."""
+
+    for axis in range(3):
+
+        if box_a["max"][axis] < box_b["min"][axis] - tolerance:
+            return False
+
+        if box_b["max"][axis] < box_a["min"][axis] - tolerance:
+            return False
+
+    return True
+
+
+def get_swept_aabb_interval(
+    moving_box,
+    blocker_box,
+    direction,
+    start_distance,
+    end_distance
+):
+    """
+    Calculate the distance interval during which two AABBs can
+    overlap while the moving box travels along a direction.
+
+    This is a broad-phase calculation.  It does not prove that the
+    actual B-Rep solids collide; it only identifies distances worth
+    checking with exact geometry.
+    """
+
+    interval_min = start_distance
+    interval_max = end_distance
+
+    for axis in range(3):
+
+        velocity = direction[axis]
+        moving_min = moving_box["min"][axis]
+        moving_max = moving_box["max"][axis]
+        blocker_min = blocker_box["min"][axis]
+        blocker_max = blocker_box["max"][axis]
+
+        if abs(velocity) < 0.000000001:
+
+            if (
+                moving_max < blocker_min
+                or moving_min > blocker_max
+            ):
+                return None
+
+            continue
+
+        # The moving interval overlaps the blocker interval when:
+        #
+        #   moving_min + v*t <= blocker_max
+        #   moving_max + v*t >= blocker_min
+        #
+        # Solve both inequalities for t.
+
+        t1 = (blocker_min - moving_max) / velocity
+        t2 = (blocker_max - moving_min) / velocity
+
+        axis_min = min(t1, t2)
+        axis_max = max(t1, t2)
+
+        interval_min = max(interval_min, axis_min)
+        interval_max = min(interval_max, axis_max)
+
+        if interval_min > interval_max:
+            return None
+
+    return interval_min, interval_max
+
+
+def get_occurrence_world_bodies(
+    occurrence,
+    temp_brep_manager
+):
+    """
+    Create temporary world-coordinate copies of all solid B-Rep
+    bodies belonging to an occurrence.
+
+    The real Fusion model is never modified.
+    """
+
+    temporary_bodies = []
+
+    component = occurrence.component
+    bodies = component.bRepBodies
+    occurrence_transform = occurrence.transform2
+
+    for i in range(bodies.count):
+
+        body = bodies.item(i)
+
+        if not body:
+            continue
+
+        # Motion/collision testing currently targets solid bodies.
+        # Wires and surfaces have zero volume and are ignored.
+        try:
+            if body.volume <= 0:
+                continue
+        except Exception:
+            continue
+
+        copied_body = temp_brep_manager.copy(body)
+
+        if not copied_body:
+            continue
+
+        if not temp_brep_manager.transform(
+            copied_body,
+            occurrence_transform
+        ):
+            continue
+
+        temporary_bodies.append(copied_body)
+
+    return temporary_bodies
+
+
+def exact_body_collision(
+    moving_bodies,
+    blocker_bodies,
+    temp_brep_manager,
+    volume_tolerance=0.000000001
+):
+    """
+    Perform exact B-Rep intersection tests between temporary bodies.
+
+    Returns True only when the intersection has non-zero volume.
+    Touching faces/edges therefore do not count as a collision.
+    """
+
+    intersection_type = (
+        adsk.fusion.BooleanTypes.IntersectionBooleanType
+    )
+
+    for moving_body in moving_bodies:
+
+        for blocker_body in blocker_bodies:
+
+            moving_copy = temp_brep_manager.copy(
+                moving_body
+            )
+
+            if not moving_copy:
+                continue
+
+            success = temp_brep_manager.booleanOperation(
+                moving_copy,
+                blocker_body,
+                intersection_type
+            )
+
+            if not success:
+                # A Boolean failure is not automatically treated as
+                # a collision.  The broad-phase already told us this
+                # pair is geometrically close, but the kernel may not
+                # be able to resolve a tangency or degenerate case.
+                continue
+
+            try:
+                if moving_copy.volume > volume_tolerance:
+                    return True
+            except Exception:
+                continue
+
+    return False
+
+
+def test_single_motion(
+    moving_occurrence,
+    blocker_occurrences,
+    direction,
+    max_distance,
+    temp_brep_manager,
+    epsilon=0.01
+):
+    """
+    Test removal of one occurrence along one candidate direction.
+
+    The occurrence is never moved in the real Fusion document.
+    Temporary B-Rep copies are translated instead.
+
+    Returns a result describing whether the motion is collision-free
+    or blocked, including the first blocker that produced an exact
+    B-Rep collision.
+    """
+
+    moving_bodies = get_occurrence_world_bodies(
+        moving_occurrence,
+        temp_brep_manager
+    )
+
+    if len(moving_bodies) == 0:
+        return {
+            "feasible": None,
+            "status": "no_solid_geometry",
+            "blocked_by": [],
+            "distance": None
+        }
+
+    moving_box = get_bounding_box(
+        moving_occurrence
+    )
+
+    # Create temporary world-coordinate blocker bodies once.  They
+    # remain stationary while the moving copies are translated.
+    blocker_data = []
+
+    for blocker_occurrence in blocker_occurrences:
+
+        blocker_bodies = get_occurrence_world_bodies(
+            blocker_occurrence,
+            temp_brep_manager
+        )
+
+        if len(blocker_bodies) == 0:
+            continue
+
+        blocker_data.append({
+            "occurrence": blocker_occurrence,
+            "bounding_box": get_bounding_box(
+                blocker_occurrence
+            ),
+            "bodies": blocker_bodies
+        })
+
+    # ------------------------------------------------------
+    # Build broad-phase collision intervals.
+    # ------------------------------------------------------
+
+    collision_candidates = []
+
+    for blocker in blocker_data:
+
+        interval = get_swept_aabb_interval(
+            moving_box,
+            blocker["bounding_box"],
+            direction,
+            epsilon,
+            max_distance
+        )
+
+        if interval is None:
+            continue
+
+        interval_min, interval_max = interval
+
+        if interval_max < epsilon:
+            continue
+
+        interval_min = max(interval_min, epsilon)
+
+        if interval_min > max_distance:
+            continue
+
+        interval_max = min(interval_max, max_distance)
+
+        if interval_min <= interval_max:
+            collision_candidates.append({
+                "blocker": blocker,
+                "start": interval_min,
+                "end": interval_max
+            })
+
+    # Check the earliest broad-phase intervals first.
+    collision_candidates.sort(
+        key=lambda candidate: candidate["start"]
+    )
+
+    # ------------------------------------------------------
+    # Exact B-Rep checks.
+    # ------------------------------------------------------
+    # AABB overlap is deliberately only a broad phase.  We check a
+    # few points inside each interval because the exact collision
+    # may occupy only part of the broad-phase interval.
+
+    for candidate in collision_candidates:
+
+        blocker = candidate["blocker"]
+        start = candidate["start"]
+        end = candidate["end"]
+
+        test_distances = [start]
+
+        if end > start:
+            test_distances.append(
+                (start + end) / 2.0
+            )
+            test_distances.append(end)
+
+        for distance in test_distances:
+
+            # Avoid testing exactly at a pure contact boundary when
+            # possible.  The initial epsilon serves the same purpose
+            # for the first test.
+            if distance == start and end > start:
+                distance = min(
+                    end,
+                    start + 0.001
+                )
+
+            test_bodies = []
+
+            for body in moving_bodies:
+
+                copied_body = temp_brep_manager.copy(
+                    body
+                )
+
+                if not copied_body:
+                    continue
+
+                transform = make_translation_matrix(
+                    direction,
+                    distance
+                )
+
+                if not temp_brep_manager.transform(
+                    copied_body,
+                    transform
+                ):
+                    continue
+
+                test_bodies.append(copied_body)
+
+            if exact_body_collision(
+                test_bodies,
+                blocker["bodies"],
+                temp_brep_manager
+            ):
+                return {
+                    "feasible": False,
+                    "status": "blocked",
+                    "blocked_by": [
+                        blocker["occurrence"].name
+                    ],
+                    "distance": clean_number(distance)
+                }
+
+    # No exact collision was found anywhere along the broad-phase
+    # intervals, so this direction is considered collision-free.
+    return {
+        "feasible": True,
+        "status": "collision_free",
+        "blocked_by": [],
+        "distance": clean_number(max_distance)
+    }
+
+
+def get_assembly_motion_distance(parts, multiplier=2.0):
+    """
+    Choose a travel distance large enough to move a part clear of
+    the whole assembly.
+    """
+
+    if len(parts) == 0:
+        return 100.0
+
+    min_point = [
+        float("inf"),
+        float("inf"),
+        float("inf")
+    ]
+
+    max_point = [
+        float("-inf"),
+        float("-inf"),
+        float("-inf")
+    ]
+
+    for part in parts:
+
+        for axis in range(3):
+
+            min_point[axis] = min(
+                min_point[axis],
+                part["bounding_box"]["min"][axis]
+            )
+
+            max_point[axis] = max(
+                max_point[axis],
+                part["bounding_box"]["max"][axis]
+            )
+
+    diagonal = vector_length([
+        max_point[0] - min_point[0],
+        max_point[1] - min_point[1],
+        max_point[2] - min_point[2]
+    ])
+
+    return max(
+        10.0,
+        diagonal * multiplier
+    )
+
+
+def analyze_motion_directions(
+    parts,
+    fusion_occurrences,
+    max_distance
+):
+    """
+    Test every generated candidate direction against the CAD model.
+
+    The output distinguishes:
+
+        collision_free
+        blocked
+        no_solid_geometry
+
+    For a collision-free removal direction, the corresponding
+    insertion direction is simply the opposite vector.
+    """
+
+    temp_brep_manager = (
+        adsk.fusion.TemporaryBRepManager.get()
+    )
+
+    if not temp_brep_manager:
+        return {
+            "method": "temporary_brep_motion_test",
+            "status": "unavailable",
+            "results": []
+        }
+
+    occurrence_map = {}
+
+    for occurrence in fusion_occurrences:
+        occurrence_map[occurrence.name] = occurrence
+
+    results = []
+
+    for part in parts:
+
+        occurrence = occurrence_map.get(
+            part["id"]
+        )
+
+        if not occurrence:
+            continue
+
+        candidates = generate_candidate_directions(
+            part["rotation"]
+        )
+
+        blocker_occurrences = [
+            other
+            for other in fusion_occurrences
+            if other.name != occurrence.name
+        ]
+
+        direction_results = []
+
+        for candidate in candidates:
+
+            motion = test_single_motion(
+                occurrence,
+                blocker_occurrences,
+                candidate["vector"],
+                max_distance,
+                temp_brep_manager
+            )
+
+            result = {
+                "name": candidate["name"],
+                "vector": candidate["vector"],
+                "frame": candidate["frame"],
+                "source": candidate["source"],
+                "removal": motion
+            }
+
+            if motion.get("feasible") is True:
+
+                result["insertion"] = {
+                    "vector": [
+                        clean_number(-candidate["vector"][0]),
+                        clean_number(-candidate["vector"][1]),
+                        clean_number(-candidate["vector"][2])
+                    ],
+                    "derived_from": "reverse_of_collision_free_removal"
+                }
+
+            direction_results.append(result)
+
+        results.append({
+            "part": part["id"],
+            "max_travel_distance": clean_number(max_distance),
+            "directions": direction_results
+        })
+
+    return {
+        "method": "temporary_brep_motion_test",
+        "status": "complete",
+        "max_travel_distance": clean_number(max_distance),
+        "results": results
+    }
+
+
 # ==========================================================
 # Joint graph and precedence analysis
 # ==========================================================
@@ -979,6 +1524,10 @@ def run(context):
 
         occurrences = []
 
+        # Keep the actual Fusion occurrence objects separately for
+        # non-destructive temporary-B-Rep motion testing.
+        fusion_occurrences = []
+
         # ==================================================
         # Export occurrences
         # ==================================================
@@ -1076,6 +1625,8 @@ def run(context):
                     bounding_box
             })
 
+            fusion_occurrences.append(occurrence)
+
         # ==================================================
         # Geometric relationships
         # ==================================================
@@ -1115,6 +1666,22 @@ def run(context):
         assembly["direction_analysis"] = (
             analyze_candidate_directions(
                 assembly["parts"]
+            )
+        )
+
+        # ==================================================
+        # CAD motion / collision analysis
+        # ==================================================
+
+        max_motion_distance = get_assembly_motion_distance(
+            assembly["parts"]
+        )
+
+        assembly["motion_analysis"] = (
+            analyze_motion_directions(
+                assembly["parts"],
+                fusion_occurrences,
+                max_motion_distance
             )
         )
 
@@ -1183,6 +1750,11 @@ def run(context):
             + "Direction analyses: "
             + str(
                 len(assembly["direction_analysis"])
+            )
+            + "\n"
+            + "Motion analyses: "
+            + str(
+                len(assembly["motion_analysis"].get("results", []))
             )
             + "\n"
             + "Precedence edges: "
