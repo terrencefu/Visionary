@@ -342,6 +342,543 @@ def merge_relationships(
 
 
 # ==========================================================
+# Assembly axis identification
+# ==========================================================
+
+def get_bbox_dimensions(box):
+    """Return [x, y, z] dimensions for an AABB."""
+
+    return [
+        max(0.0, box["max"][0] - box["min"][0]),
+        max(0.0, box["max"][1] - box["min"][1]),
+        max(0.0, box["max"][2] - box["min"][2])
+    ]
+
+
+def get_axis_interval_metrics(box_a, box_b, axis_index):
+    """
+    Compare two bounding boxes along one candidate assembly axis.
+
+    The important distinction here is that we do NOT use the
+    center-to-center vector as the axis signal.
+
+    Instead, this measures:
+
+        1. overlap along the candidate axis
+        2. separation along the candidate axis
+        3. overlap on the two perpendicular axes
+
+    A stacking/interface relationship therefore tends to have:
+
+        low overlap along the assembly axis
+        high overlap in the perpendicular directions
+    """
+
+    dimensions_a = get_bbox_dimensions(box_a)
+    dimensions_b = get_bbox_dimensions(box_b)
+
+    overlaps = []
+    gaps = []
+    overlap_ratios = []
+
+    for axis in range(3):
+
+        a_min = box_a["min"][axis]
+        a_max = box_a["max"][axis]
+
+        b_min = box_b["min"][axis]
+        b_max = box_b["max"][axis]
+
+        overlap = max(
+            0.0,
+            min(a_max, b_max) - max(a_min, b_min)
+        )
+
+        if a_max < b_min:
+            gap = b_min - a_max
+
+        elif b_max < a_min:
+            gap = a_min - b_max
+
+        else:
+            gap = 0.0
+
+        # Normalize overlap by the smaller part dimension.
+        #
+        # This is deliberately different from center-to-center
+        # distance.
+        reference_dimension = min(
+            dimensions_a[axis],
+            dimensions_b[axis]
+        )
+
+        if reference_dimension > 0.000001:
+
+            overlap_ratio = min(
+                1.0,
+                max(
+                    0.0,
+                    overlap / reference_dimension
+                )
+            )
+
+        else:
+
+            overlap_ratio = 0.0
+
+        overlaps.append(overlap)
+        gaps.append(gap)
+        overlap_ratios.append(overlap_ratio)
+
+    axis_overlap_ratio = overlap_ratios[axis_index]
+
+    perpendicular_axes = [
+        axis
+        for axis in range(3)
+        if axis != axis_index
+    ]
+
+    perpendicular_overlap = (
+        sum(
+            overlap_ratios[axis]
+            for axis in perpendicular_axes
+        )
+        / 2.0
+    )
+
+    # A stacking/interface axis should separate the two parts
+    # while retaining substantial support/alignment in the other
+    # two axes.
+    separation_score = (
+        1.0 - axis_overlap_ratio
+    )
+
+    interface_score = (
+        separation_score
+        * perpendicular_overlap
+    )
+
+    return {
+        "overlap": clean_number(
+            overlaps[axis_index]
+        ),
+
+        "gap": clean_number(
+            gaps[axis_index]
+        ),
+
+        "overlap_ratio": clean_number(
+            axis_overlap_ratio
+        ),
+
+        "separation_score": clean_number(
+            separation_score
+        ),
+
+        "perpendicular_overlap": clean_number(
+            perpendicular_overlap
+        ),
+
+        "interface_score": clean_number(
+            interface_score
+        ),
+
+        "all_axis_overlap_ratios": [
+            clean_number(value)
+            for value in overlap_ratios
+        ]
+    }
+
+
+def get_relationship_weight(relationship):
+    """
+    Return the amount of trust given to a relationship.
+
+    Fusion joints are strong CAD evidence.
+
+    Candidate geometric contacts are intentionally weaker so
+    that a coincidental contact between long parts cannot
+    overpower several explicit joints.
+    """
+
+    has_joint = False
+    has_candidate_contact = False
+
+    for evidence in relationship.get(
+        "evidence",
+        []
+    ):
+
+        if evidence.get("type") == "joint":
+
+            has_joint = True
+
+        elif evidence.get("type") == "candidate_contact":
+
+            has_candidate_contact = True
+
+    if has_joint:
+
+        # A pair with both joint and geometric evidence is still
+        # one high-confidence relationship, not two independent
+        # relationships.
+        return 2.0
+
+    if has_candidate_contact:
+
+        return 0.5
+
+    return 0.0
+
+
+def get_relationship_evidence_types(relationship):
+    """Return the evidence types present in one relationship."""
+
+    return [
+        evidence.get("type")
+        for evidence in relationship.get(
+            "evidence",
+            []
+        )
+    ]
+
+
+def analyze_global_assembly_axis(
+    parts,
+    relationships
+):
+    """
+    Identify the primary assembly axis from CAD relationships.
+
+    The axis is selected as an undirected X/Y/Z axis first.
+    The sign (+/-) is determined afterward from the
+    lower-to-higher direction of the related parts.
+
+    Primary evidence:
+
+        - AABB interface/stacking geometry
+        - high-confidence Fusion joints
+
+    Deliberately NOT used as the primary axis signal:
+
+        - center-to-center displacement
+        - motion/removability simulation
+
+    This separation is important.
+
+    For example, a long 1x8 plate can have a center many
+    centimeters away from the engine it supports, even though
+    their actual interface is vertically stacked.
+
+    The old center-displacement method could therefore select
+    Y instead of Z.
+    """
+
+    axis_names = [
+        "X",
+        "Y",
+        "Z"
+    ]
+
+    axis_vectors = [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1]
+    ]
+
+    part_map = {
+        part["id"]: part
+        for part in parts
+    }
+
+    axis_totals = [
+        0.0,
+        0.0,
+        0.0
+    ]
+
+    axis_weights = [
+        0.0,
+        0.0,
+        0.0
+    ]
+
+    relationship_diagnostics = []
+
+    # ------------------------------------------------------
+    # Score each relationship independently.
+    # ------------------------------------------------------
+
+    for relationship in relationships:
+
+        part_a = part_map.get(
+            relationship["part_a"]
+        )
+
+        part_b = part_map.get(
+            relationship["part_b"]
+        )
+
+        if not part_a or not part_b:
+            continue
+
+        weight = get_relationship_weight(
+            relationship
+        )
+
+        if weight <= 0.0:
+            continue
+
+        axis_metrics = []
+
+        for axis_index in range(3):
+
+            metrics = get_axis_interval_metrics(
+                part_a["bounding_box"],
+                part_b["bounding_box"],
+                axis_index
+            )
+
+            axis_metrics.append(
+                metrics
+            )
+
+            axis_totals[axis_index] += (
+                weight
+                * metrics["interface_score"]
+            )
+
+            axis_weights[axis_index] += weight
+
+        # --------------------------------------------------
+        # Center displacement is retained ONLY as diagnostic
+        # information.
+        #
+        # It does not contribute to axis_totals.
+        # --------------------------------------------------
+
+        center_a = part_a["position"]
+        center_b = part_b["position"]
+
+        center_difference = [
+            center_b[i] - center_a[i]
+            for i in range(3)
+        ]
+
+        relationship_diagnostics.append({
+            "part_a": part_a["id"],
+            "part_b": part_b["id"],
+
+            "evidence":
+                get_relationship_evidence_types(
+                    relationship
+                ),
+
+            "weight":
+                clean_number(weight),
+
+            "interface_geometry": {
+                "X": axis_metrics[0],
+                "Y": axis_metrics[1],
+                "Z": axis_metrics[2]
+            },
+
+            "center_difference_diagnostic": [
+                clean_number(value)
+                for value in center_difference
+            ]
+        })
+
+    # ------------------------------------------------------
+    # Normalize axis scores.
+    # ------------------------------------------------------
+
+    axis_scores = []
+
+    for axis_index in range(3):
+
+        if axis_weights[axis_index] > 0.0:
+
+            score = (
+                axis_totals[axis_index]
+                / axis_weights[axis_index]
+            )
+
+        else:
+
+            score = 0.0
+
+        axis_scores.append(
+            clean_number(score)
+        )
+
+    # ------------------------------------------------------
+    # Select the axis line.
+    # ------------------------------------------------------
+
+    high_confidence_relationship_count = sum(
+        1
+        for relationship in relationship_diagnostics
+        if relationship["weight"] >= 2.0
+    )
+
+    if max(axis_weights) <= 0.0:
+
+        # No relationship information exists.
+        #
+        # Keep the prototype's conventional +Z fallback,
+        # but explicitly mark it low confidence.
+        selected_index = 2
+
+        confidence = "low"
+
+        selection_reason = (
+            "no_relationship_evidence"
+        )
+
+    else:
+
+        selected_index = max(
+            range(3),
+            key=lambda index: axis_scores[index]
+        )
+
+        sorted_scores = sorted(
+            axis_scores,
+            reverse=True
+        )
+
+        if len(sorted_scores) >= 2:
+
+            margin = (
+                sorted_scores[0]
+                - sorted_scores[1]
+            )
+
+        else:
+
+            margin = sorted_scores[0]
+
+        if (
+            high_confidence_relationship_count >= 2
+            and margin >= 0.15
+        ):
+
+            confidence = "high"
+
+        elif margin >= 0.05:
+
+            confidence = "medium"
+
+        else:
+
+            confidence = "low"
+
+        selection_reason = (
+            "highest_weighted_interface_alignment"
+        )
+
+    # ------------------------------------------------------
+    # Determine the sign separately.
+    # ------------------------------------------------------
+    #
+    # The axis line above is deliberately X/Y/Z without a
+    # sign.
+    #
+    # Centers are used here ONLY to determine whether the
+    # selected axis should be + or -.
+    #
+    # They are NOT used to decide which axis wins.
+    # ------------------------------------------------------
+
+    signed_direction = 0.0
+
+    selected_axis_index = selected_index
+
+    for relationship in relationship_diagnostics:
+
+        part_a = part_map.get(
+            relationship["part_a"]
+        )
+
+        part_b = part_map.get(
+            relationship["part_b"]
+        )
+
+        if not part_a or not part_b:
+            continue
+
+        weight = relationship["weight"]
+
+        delta = (
+            part_b["position"][selected_axis_index]
+            - part_a["position"][selected_axis_index]
+        )
+
+        signed_direction += (
+            weight * delta
+        )
+
+    if signed_direction < 0.0:
+
+        selected_vector = [
+            -axis_vectors[selected_index][0],
+            -axis_vectors[selected_index][1],
+            -axis_vectors[selected_index][2]
+        ]
+
+    else:
+
+        selected_vector = axis_vectors[
+            selected_index
+        ]
+
+    return {
+        "method":
+            "relationship_interface_geometry",
+
+        "axis_selection_reason":
+            selection_reason,
+
+        "axis_scores": {
+            "X": axis_scores[0],
+            "Y": axis_scores[1],
+            "Z": axis_scores[2]
+        },
+
+        "axis_weights": {
+            "X": clean_number(
+                axis_weights[0]
+            ),
+            "Y": clean_number(
+                axis_weights[1]
+            ),
+            "Z": clean_number(
+                axis_weights[2]
+            )
+        },
+
+        "selected_axis":
+            axis_names[selected_index],
+
+        "selected_axis_vector":
+            selected_vector,
+
+        "confidence":
+            confidence,
+
+        "relationship_count":
+            len(relationship_diagnostics),
+
+        "high_confidence_relationship_count":
+            high_confidence_relationship_count,
+
+        "relationship_analysis":
+            relationship_diagnostics
+    }
+
+
+# ==========================================================
 # Candidate direction generation
 # ==========================================================
 
@@ -361,7 +898,11 @@ def normalize_vector(vector):
     length = vector_length(vector)
 
     if length == 0:
-        return [0.0, 0.0, 0.0]
+        return [
+            0.0,
+            0.0,
+            0.0
+        ]
 
     return [
         vector[0] / length,
@@ -380,7 +921,8 @@ def vectors_are_close(
     for i in range(3):
 
         if abs(
-            vector_a[i] - vector_b[i]
+            vector_a[i]
+            - vector_b[i]
         ) > tolerance:
 
             return False
@@ -400,7 +942,11 @@ def add_direction(
     already exists.
     """
 
-    vector = normalize_vector(vector)
+    vector = normalize_vector(
+        vector
+    )
+
+    # Check for duplicate directions.
 
     for existing in directions:
 
@@ -413,12 +959,15 @@ def add_direction(
 
     directions.append({
         "name": name,
+
         "vector": [
             clean_number(vector[0]),
             clean_number(vector[1]),
             clean_number(vector[2])
         ],
+
         "frame": frame,
+
         "source": source
     })
 
@@ -427,8 +976,8 @@ def generate_candidate_directions(
     rotation
 ):
     """
-    Generate candidate directions for individual-part motion
-    analysis.
+    Generate candidate assembly/disassembly directions
+    using global and local coordinate axes.
 
     Global directions:
         +/- X
@@ -440,11 +989,12 @@ def generate_candidate_directions(
         +/- y
         +/- z
 
-    This function is separate from global assembly-axis
-    identification.
+    The local axes are obtained from the columns of
+    the part's 3x3 rotation matrix.
 
-    Global assembly-axis identification does NOT use these
-    motion directions.
+    This stage generates candidate directions only.
+    It does not determine whether a direction is
+    geometrically feasible.
     """
 
     directions = []
@@ -595,8 +1145,7 @@ def analyze_candidate_directions(
     Generate candidate directions for every part.
 
     This stage does NOT determine geometric feasibility yet.
-    It only determines which directions should be tested for
-    individual-part motion.
+    It only determines which directions should be tested.
     """
 
     results = []
@@ -616,1735 +1165,6 @@ def analyze_candidate_directions(
 
 
 # ==========================================================
-# Global assembly-axis identification
-# ==========================================================
-
-def get_relationship_weight(relationship):
-    """
-    Assign a weight to a relationship based on the strength of
-    its CAD evidence.
-
-    A Fusion joint is stronger evidence than broad-phase
-    candidate contact.
-
-    If a pair has both types of evidence, the relationship gets
-    a maximum weight of 3.0 rather than being allowed to dominate
-    the complete assembly.
-    """
-
-    weight = 0.0
-
-    for evidence in relationship.get("evidence", []):
-
-        evidence_type = evidence.get("type")
-
-        if evidence_type == "joint":
-            weight += 2.0
-
-        elif evidence_type == "candidate_contact":
-            weight += 1.0
-
-    return min(weight, 3.0)
-
-
-def get_part_map(parts):
-    """Create a lookup from part ID to part data."""
-
-    return {
-        part["id"]: part
-        for part in parts
-    }
-
-
-def get_part_center(part):
-    """
-    Get the center of an occurrence's assembly-coordinate
-    bounding box.
-
-    The bounding-box center is used instead of the occurrence
-    transform origin because the origin does not necessarily
-    represent the physical center of the part.
-    """
-
-    box = part["bounding_box"]
-
-    return [
-        (
-            box["min"][0]
-            + box["max"][0]
-        ) / 2.0,
-
-        (
-            box["min"][1]
-            + box["max"][1]
-        ) / 2.0,
-
-        (
-            box["min"][2]
-            + box["max"][2]
-        ) / 2.0
-    ]
-
-
-def get_position_difference(
-    part_a,
-    part_b
-):
-    """
-    Return the vector from part A's bounding-box center to
-    part B's bounding-box center.
-    """
-
-    center_a = get_part_center(part_a)
-    center_b = get_part_center(part_b)
-
-    return [
-        center_b[0] - center_a[0],
-        center_b[1] - center_a[1],
-        center_b[2] - center_a[2]
-    ]
-
-
-def calculate_relationship_axis_alignment(
-    part_a,
-    part_b,
-    candidate_axis
-):
-    """
-    Measure how strongly the relationship between two parts
-    aligns with an UN-DIRECTED candidate axis.
-
-    Returns:
-
-        1.0 = relationship lies completely along the axis
-        0.0 = relationship is perpendicular to the axis
-
-    Absolute value is intentional.
-
-    Axis identification should determine:
-
-        X vs Y vs Z
-
-    rather than prematurely deciding:
-
-        +X vs -X
-        +Y vs -Y
-        +Z vs -Z
-    """
-
-    difference = get_position_difference(
-        part_a,
-        part_b
-    )
-
-    distance = vector_length(
-        difference
-    )
-
-    if distance < 0.000001:
-        return 0.0
-
-    difference_direction = normalize_vector(
-        difference
-    )
-
-    projection = (
-        difference_direction[0] * candidate_axis[0]
-        + difference_direction[1] * candidate_axis[1]
-        + difference_direction[2] * candidate_axis[2]
-    )
-
-    return abs(projection)
-
-
-def calculate_relationship_separation(
-    part_a,
-    part_b,
-    candidate_axis
-):
-    """
-    Measure how much the centers of two related parts are
-    separated along a candidate axis.
-
-    This is normalized relative to the center-to-center
-    distance, so the result lies approximately in [0, 1].
-
-    This is related to axis alignment, but is retained as a
-    separate interpretable signal for the holistic analysis.
-    """
-
-    difference = get_position_difference(
-        part_a,
-        part_b
-    )
-
-    distance = vector_length(
-        difference
-    )
-
-    if distance < 0.000001:
-        return 0.0
-
-    projected_distance = abs(
-        difference[0] * candidate_axis[0]
-        + difference[1] * candidate_axis[1]
-        + difference[2] * candidate_axis[2]
-    )
-
-    return min(
-        1.0,
-        projected_distance / distance
-    )
-
-
-def calculate_same_layer_fraction(
-    parts,
-    relationships,
-    candidate_axis,
-    layer_tolerance=0.01
-):
-    """
-    Determine what fraction of related pairs occupy essentially
-    the same layer along the candidate axis.
-
-    A high same-layer fraction weakens the case for that axis
-    because related parts are not being separated into a useful
-    progression along it.
-    """
-
-    part_map = get_part_map(parts)
-
-    weighted_pairs = 0.0
-    weighted_same_layer = 0.0
-
-    for relationship in relationships:
-
-        part_a = part_map.get(
-            relationship["part_a"]
-        )
-
-        part_b = part_map.get(
-            relationship["part_b"]
-        )
-
-        if not part_a or not part_b:
-            continue
-
-        weight = get_relationship_weight(
-            relationship
-        )
-
-        if weight <= 0:
-            continue
-
-        center_a = get_part_center(part_a)
-        center_b = get_part_center(part_b)
-
-        projected_a = (
-            center_a[0] * candidate_axis[0]
-            + center_a[1] * candidate_axis[1]
-            + center_a[2] * candidate_axis[2]
-        )
-
-        projected_b = (
-            center_b[0] * candidate_axis[0]
-            + center_b[1] * candidate_axis[1]
-            + center_b[2] * candidate_axis[2]
-        )
-
-        separation = abs(
-            projected_b - projected_a
-        )
-
-        weighted_pairs += weight
-
-        if separation <= layer_tolerance:
-            weighted_same_layer += weight
-
-    if weighted_pairs <= 0:
-        return 0.0
-
-    return (
-        weighted_same_layer
-        / weighted_pairs
-    )
-
-
-def calculate_spatial_distribution_score(
-    parts,
-    candidate_axis
-):
-    """
-    Measure how much of the assembly's overall spatial extent lies
-    along the candidate axis.
-
-    This is a secondary holistic signal.
-
-    It is deliberately weaker than relationship evidence because
-    a product can be physically wide without being assembled along
-    its widest dimension.
-    """
-
-    if len(parts) <= 1:
-        return {
-            "score": 0.0,
-            "axis_extent": 0.0,
-            "total_extent": 0.0
-        }
-
-    projected_positions = []
-
-    for part in parts:
-
-        center = get_part_center(part)
-
-        projection = (
-            center[0] * candidate_axis[0]
-            + center[1] * candidate_axis[1]
-            + center[2] * candidate_axis[2]
-        )
-
-        projected_positions.append(
-            projection
-        )
-
-    axis_extent = (
-        max(projected_positions)
-        - min(projected_positions)
-    )
-
-    # Calculate the overall positional spread in XYZ.
-    all_centers = [
-        get_part_center(part)
-        for part in parts
-    ]
-
-    extents = []
-
-    for axis_index in range(3):
-
-        values = [
-            center[axis_index]
-            for center in all_centers
-        ]
-
-        extents.append(
-            max(values) - min(values)
-        )
-
-    total_extent = vector_length(
-        extents
-    )
-
-    if total_extent < 0.000001:
-
-        score = 0.0
-
-    else:
-
-        score = (
-            axis_extent / total_extent
-        )
-
-    return {
-        "score": clean_number(score),
-        "axis_extent": clean_number(axis_extent),
-        "total_extent": clean_number(total_extent)
-    }
-
-
-def calculate_assembly_axis_score(
-    parts,
-    relationships,
-    candidate_name,
-    candidate_axis
-):
-    """
-    Calculate the holistic score for one UN-DIRECTED global
-    assembly axis.
-
-    Candidate axes are:
-
-        X
-        Y
-        Z
-
-    The sign is deliberately ignored during this stage.
-
-    Signals:
-
-        1. Relationship alignment
-        2. Relationship separation
-        3. Same-layer penalty
-        4. Overall spatial distribution
-
-    Relationship evidence is the primary signal.
-
-    Spatial distribution is only supporting evidence.
-    """
-
-    part_map = get_part_map(parts)
-
-    total_weight = 0.0
-
-    weighted_alignment = 0.0
-    weighted_separation = 0.0
-
-    supporting_pairs = []
-    perpendicular_pairs = []
-
-    for relationship in relationships:
-
-        part_a = part_map.get(
-            relationship["part_a"]
-        )
-
-        part_b = part_map.get(
-            relationship["part_b"]
-        )
-
-        if not part_a or not part_b:
-            continue
-
-        weight = get_relationship_weight(
-            relationship
-        )
-
-        if weight <= 0:
-            continue
-
-        alignment = calculate_relationship_axis_alignment(
-            part_a,
-            part_b,
-            candidate_axis
-        )
-
-        separation = calculate_relationship_separation(
-            part_a,
-            part_b,
-            candidate_axis
-        )
-
-        weighted_alignment += (
-            alignment * weight
-        )
-
-        weighted_separation += (
-            separation * weight
-        )
-
-        total_weight += weight
-
-        evidence_types = []
-
-        for evidence in relationship.get(
-            "evidence",
-            []
-        ):
-
-            evidence_type = evidence.get(
-                "type"
-            )
-
-            if evidence_type not in evidence_types:
-                evidence_types.append(
-                    evidence_type
-                )
-
-        pair_info = {
-            "part_a": relationship["part_a"],
-            "part_b": relationship["part_b"],
-            "alignment": clean_number(alignment),
-            "separation": clean_number(separation),
-            "weight": clean_number(weight),
-            "evidence": evidence_types
-        }
-
-        if alignment >= 0.5:
-            supporting_pairs.append(
-                pair_info
-            )
-
-        else:
-            perpendicular_pairs.append(
-                pair_info
-            )
-
-    if total_weight > 0:
-
-        relationship_alignment = (
-            weighted_alignment
-            / total_weight
-        )
-
-        relationship_separation = (
-            weighted_separation
-            / total_weight
-        )
-
-    else:
-
-        relationship_alignment = 0.0
-        relationship_separation = 0.0
-
-    same_layer_fraction = (
-        calculate_same_layer_fraction(
-            parts,
-            relationships,
-            candidate_axis
-        )
-    )
-
-    same_layer_score = (
-        1.0 - same_layer_fraction
-    )
-
-    spatial_distribution = (
-        calculate_spatial_distribution_score(
-            parts,
-            candidate_axis
-        )
-    )
-
-    # ------------------------------------------------------
-    # Holistic score
-    # ------------------------------------------------------
-    #
-    # Relationship alignment:
-    #     45%
-    #
-    # Relationship separation:
-    #     25%
-    #
-    # Layering:
-    #     15%
-    #
-    # Overall spatial distribution:
-    #     15%
-    #
-    # This intentionally prevents a simple "widest dimension"
-    # heuristic from determining the assembly axis.
-    # ------------------------------------------------------
-
-    relationship_alignment_component = (
-        relationship_alignment * 0.45
-    )
-
-    relationship_separation_component = (
-        relationship_separation * 0.25
-    )
-
-    layering_component = (
-        same_layer_score * 0.15
-    )
-
-    distribution_component = (
-        spatial_distribution["score"] * 0.15
-    )
-
-    total_score = (
-        relationship_alignment_component
-        + relationship_separation_component
-        + layering_component
-        + distribution_component
-    )
-
-    return {
-        "name": candidate_name,
-
-        "vector": [
-            clean_number(candidate_axis[0]),
-            clean_number(candidate_axis[1]),
-            clean_number(candidate_axis[2])
-        ],
-
-        "score": clean_number(
-            total_score
-        ),
-
-        "evidence": {
-            "relationship_alignment": {
-                "score": clean_number(
-                    relationship_alignment
-                ),
-                "weighted_score": clean_number(
-                    weighted_alignment
-                ),
-                "total_relationship_weight":
-                    clean_number(
-                        total_weight
-                    ),
-                "supporting_pairs":
-                    supporting_pairs,
-                "perpendicular_pairs":
-                    perpendicular_pairs
-            },
-
-            "relationship_separation": {
-                "score": clean_number(
-                    relationship_separation
-                ),
-                "weighted_score": clean_number(
-                    weighted_separation
-                )
-            },
-
-            "layering": {
-                "score": clean_number(
-                    same_layer_score
-                ),
-                "same_layer_fraction": clean_number(
-                    same_layer_fraction
-                )
-            },
-
-            "spatial_distribution": {
-                "score": clean_number(
-                    spatial_distribution["score"]
-                ),
-                "axis_extent": clean_number(
-                    spatial_distribution["axis_extent"]
-                ),
-                "total_extent": clean_number(
-                    spatial_distribution["total_extent"]
-                )
-            }
-        }
-    }
-
-
-def get_axis_confidence(
-    sorted_results
-):
-    """
-    Estimate confidence from the separation between the best
-    and second-best axis.
-
-    The confidence is qualitative and only describes how
-    decisively the algorithm separated the candidates.
-    """
-
-    if len(sorted_results) == 0:
-        return "none"
-
-    if len(sorted_results) == 1:
-        return "high"
-
-    best = sorted_results[0]["score"]
-    second = sorted_results[1]["score"]
-
-    difference = best - second
-
-    if difference >= 0.25:
-        return "high"
-
-    if difference >= 0.10:
-        return "medium"
-
-    return "low"
-
-
-def get_bbox_axis_projection_range(
-    box,
-    axis
-):
-    """
-    Calculate the minimum and maximum projection of an AABB
-    onto an arbitrary axis.
-
-    All eight corners are considered.
-
-    This is important because an occurrence's transform origin
-    is not necessarily its physical bottom or top.
-    """
-
-    x_min = box["min"][0]
-    y_min = box["min"][1]
-    z_min = box["min"][2]
-
-    x_max = box["max"][0]
-    y_max = box["max"][1]
-    z_max = box["max"][2]
-
-    corners = [
-        [x_min, y_min, z_min],
-        [x_min, y_min, z_max],
-        [x_min, y_max, z_min],
-        [x_min, y_max, z_max],
-        [x_max, y_min, z_min],
-        [x_max, y_min, z_max],
-        [x_max, y_max, z_min],
-        [x_max, y_max, z_max]
-    ]
-
-    projections = []
-
-    for corner in corners:
-
-        projection = (
-            corner[0] * axis[0]
-            + corner[1] * axis[1]
-            + corner[2] * axis[2]
-        )
-
-        projections.append(
-            projection
-        )
-
-    return (
-        min(projections),
-        max(projections)
-    )
-
-
-def calculate_axis_base_score(
-    part,
-    parts,
-    axis
-):
-    """
-    Calculate a heuristic score for how likely a part is to be
-    the foundational/base part along an already-selected axis.
-
-    This is used only to orient the selected axis.
-
-    Signals:
-
-        - lower position along the axis
-        - larger footprint perpendicular to the axis
-        - number of connected relationships is handled separately
-
-    The lowest part is the strongest signal.
-
-    A larger perpendicular footprint provides supporting evidence
-    because foundational parts commonly support parts above them.
-    """
-
-    min_projection, max_projection = (
-        get_bbox_axis_projection_range(
-            part["bounding_box"],
-            axis
-        )
-    )
-
-    # ------------------------------------------------------
-    # Find global projection range.
-    # ------------------------------------------------------
-
-    all_min = float("inf")
-    all_max = float("-inf")
-
-    for other in parts:
-
-        other_min, other_max = (
-            get_bbox_axis_projection_range(
-                other["bounding_box"],
-                axis
-            )
-        )
-
-        all_min = min(
-            all_min,
-            other_min
-        )
-
-        all_max = max(
-            all_max,
-            other_max
-        )
-
-    total_extent = all_max - all_min
-
-    if total_extent < 0.000001:
-
-        lower_score = 1.0
-
-    else:
-
-        # Lowest part gets 1.0.
-        # Highest part gets 0.0.
-        lower_score = (
-            all_max - min_projection
-        ) / total_extent
-
-    # ------------------------------------------------------
-    # Perpendicular footprint.
-    # ------------------------------------------------------
-
-    box = part["bounding_box"]
-
-    axis_index = None
-
-    if abs(axis[0]) > 0.999999:
-        axis_index = 0
-
-    elif abs(axis[1]) > 0.999999:
-        axis_index = 1
-
-    elif abs(axis[2]) > 0.999999:
-        axis_index = 2
-
-    footprint = 0.0
-
-    if axis_index is not None:
-
-        dimensions = [
-            box["max"][0] - box["min"][0],
-            box["max"][1] - box["min"][1],
-            box["max"][2] - box["min"][2]
-        ]
-
-        perpendicular_dimensions = [
-            dimensions[i]
-            for i in range(3)
-            if i != axis_index
-        ]
-
-        footprint = (
-            perpendicular_dimensions[0]
-            * perpendicular_dimensions[1]
-        )
-
-    return {
-        "part": part["id"],
-        "min_projection": clean_number(
-            min_projection
-        ),
-        "max_projection": clean_number(
-            max_projection
-        ),
-        "lower_score": clean_number(
-            lower_score
-        ),
-        "footprint": clean_number(
-            footprint
-        )
-    }
-
-
-def choose_assembly_axis_direction(
-    parts,
-    selected_axis
-):
-    """
-    Orient an already-selected UN-DIRECTED axis.
-
-    Axis identification first determines:
-
-        X vs Y vs Z
-
-    This function then determines which end of that axis should
-    represent the bottom of the assembly.
-
-    For the current bottom-up assembly model, the foundational
-    candidate is the part with the strongest combination of:
-
-        - low position along the axis
-        - large supporting footprint
-
-    The axis is then oriented from that base toward the rest of
-    the assembly.
-
-    This keeps axis identification separate from assembly
-    precedence.
-    """
-
-    axis = normalize_vector(
-        selected_axis
-    )
-
-    if len(parts) == 0:
-        return {
-            "axis": axis,
-            "name": None,
-            "base_part": None,
-            "candidates": []
-        }
-
-    base_candidates = []
-
-    for part in parts:
-
-        candidate = calculate_axis_base_score(
-            part,
-            parts,
-            axis
-        )
-
-        base_candidates.append(
-            candidate
-        )
-
-    # ------------------------------------------------------
-    # Determine the base candidate.
-    #
-    # Lower position is the primary signal.
-    # Footprint is a small tie-breaking/supporting signal.
-    # ------------------------------------------------------
-
-    base_candidates.sort(
-        key=lambda candidate: (
-            candidate["lower_score"],
-            candidate["footprint"]
-        ),
-        reverse=True
-    )
-
-    base_part = base_candidates[0]
-
-    base_min = base_part["min_projection"]
-
-    # ------------------------------------------------------
-    # Determine which sign points away from the base.
-    #
-    # We compare the base to the assembly's overall center.
-    #
-    # If the assembly extends toward +axis from the base,
-    # retain +axis.
-    #
-    # If it extends toward -axis from the base, reverse it.
-    # ------------------------------------------------------
-
-    center_projection_sum = 0.0
-
-    for part in parts:
-
-        center = get_part_center(part)
-
-        center_projection_sum += (
-            center[0] * axis[0]
-            + center[1] * axis[1]
-            + center[2] * axis[2]
-        )
-
-    assembly_center_projection = (
-        center_projection_sum
-        / len(parts)
-    )
-
-    direction = list(axis)
-
-    if assembly_center_projection < base_min:
-
-        direction = [
-            -axis[0],
-            -axis[1],
-            -axis[2]
-        ]
-
-    direction = normalize_vector(
-        direction
-    )
-
-    # ------------------------------------------------------
-    # Name
-    # ------------------------------------------------------
-
-    if vectors_are_close(
-        direction,
-        [1, 0, 0]
-    ):
-        name = "+X"
-
-    elif vectors_are_close(
-        direction,
-        [-1, 0, 0]
-    ):
-        name = "-X"
-
-    elif vectors_are_close(
-        direction,
-        [0, 1, 0]
-    ):
-        name = "+Y"
-
-    elif vectors_are_close(
-        direction,
-        [0, -1, 0]
-    ):
-        name = "-Y"
-
-    elif vectors_are_close(
-        direction,
-        [0, 0, 1]
-    ):
-        name = "+Z"
-
-    elif vectors_are_close(
-        direction,
-        [0, 0, -1]
-    ):
-        name = "-Z"
-
-    else:
-        name = "custom"
-
-    return {
-        "axis": [
-            clean_number(direction[0]),
-            clean_number(direction[1]),
-            clean_number(direction[2])
-        ],
-
-        "name": name,
-
-        "base_part": base_part["part"],
-
-        "candidates": base_candidates
-    }
-
-
-def analyze_assembly_axis(
-    parts,
-    relationships
-):
-    """
-    Identify the global assembly axis using holistic CAD structure.
-
-    IMPORTANT:
-
-    This function identifies an AXIS LINE first.
-
-        X
-        Y
-        Z
-
-    It does not initially distinguish +X from -X, etc.
-
-    The selected axis is then oriented separately so that the
-    assembly proceeds from its inferred base toward higher layers.
-
-    Motion/collision analysis is completely excluded.
-    """
-
-    # ------------------------------------------------------
-    # Candidate AXIS LINES
-    # ------------------------------------------------------
-
-    candidates = [
-        {
-            "name": "X",
-            "vector": [1, 0, 0]
-        },
-        {
-            "name": "Y",
-            "vector": [0, 1, 0]
-        },
-        {
-            "name": "Z",
-            "vector": [0, 0, 1]
-        }
-    ]
-
-    results = []
-
-    for candidate in candidates:
-
-        result = calculate_assembly_axis_score(
-            parts,
-            relationships,
-            candidate["name"],
-            candidate["vector"]
-        )
-
-        results.append(
-            result
-        )
-
-    # Highest score first.
-    results.sort(
-        key=lambda result: result["score"],
-        reverse=True
-    )
-
-    if len(results) == 0:
-
-        return {
-            "method":
-                "holistic_geometry_relationship_analysis",
-
-            "status":
-                "no_candidates",
-
-            "selected_axis":
-                None,
-
-            "selected_name":
-                None,
-
-            "confidence":
-                "none",
-
-            "direction_analysis":
-                {},
-
-            "candidates":
-                []
-        }
-
-    best = results[0]
-
-    relationship_weight = (
-        best["evidence"][
-            "relationship_alignment"
-        ][
-            "total_relationship_weight"
-        ]
-    )
-
-    if relationship_weight <= 0:
-
-        return {
-            "method":
-                "holistic_geometry_relationship_analysis",
-
-            "status":
-                "insufficient_relationship_evidence",
-
-            "selected_axis":
-                None,
-
-            "selected_name":
-                None,
-
-            "confidence":
-                "none",
-
-            "direction_analysis":
-                {},
-
-            "candidates":
-                results
-        }
-
-    confidence = get_axis_confidence(
-        results
-    )
-
-    # ------------------------------------------------------
-    # Separate axis-line selection from direction/sign.
-    # ------------------------------------------------------
-
-    direction_analysis = (
-        choose_assembly_axis_direction(
-            parts,
-            best["vector"]
-        )
-    )
-
-    return {
-        "method":
-            "holistic_geometry_relationship_analysis",
-
-        "status":
-            "complete",
-
-        "selected_axis":
-            direction_analysis["axis"],
-
-        "selected_name":
-            direction_analysis["name"],
-
-        "axis_line":
-            best["vector"],
-
-        "axis_line_name":
-            best["name"],
-
-        "confidence":
-            confidence,
-
-        "direction_analysis":
-            {
-                "method":
-                    "base_to_higher_layers",
-
-                "base_part":
-                    direction_analysis["base_part"],
-
-                "selected_direction":
-                    direction_analysis["axis"],
-
-                "selected_direction_name":
-                    direction_analysis["name"],
-
-                "base_candidates":
-                    direction_analysis["candidates"]
-            },
-
-        "candidates":
-            results
-    }
-
-
-# ==========================================================
-# CAD motion / collision testing
-# ==========================================================
-
-def make_translation_matrix(vector, distance):
-    """Create a Fusion translation matrix for vector * distance."""
-
-    transform = adsk.core.Matrix3D.create()
-
-    translation = adsk.core.Vector3D.create(
-        vector[0] * distance,
-        vector[1] * distance,
-        vector[2] * distance
-    )
-
-    transform.translation = translation
-
-    return transform
-
-
-def translate_bounding_box(box, direction, distance):
-    """Translate an axis-aligned bounding box along a direction."""
-
-    offset = [
-        direction[0] * distance,
-        direction[1] * distance,
-        direction[2] * distance
-    ]
-
-    return {
-        "min": [
-            box["min"][0] + offset[0],
-            box["min"][1] + offset[1],
-            box["min"][2] + offset[2]
-        ],
-        "max": [
-            box["max"][0] + offset[0],
-            box["max"][1] + offset[1],
-            box["max"][2] + offset[2]
-        ]
-    }
-
-
-def aabb_overlaps(box_a, box_b, tolerance=0.0):
-    """Return True when two AABBs overlap within a tolerance."""
-
-    for axis in range(3):
-
-        if box_a["max"][axis] < box_b["min"][axis] - tolerance:
-            return False
-
-        if box_b["max"][axis] < box_a["min"][axis] - tolerance:
-            return False
-
-    return True
-
-
-def get_swept_aabb_interval(
-    moving_box,
-    blocker_box,
-    direction,
-    start_distance,
-    end_distance
-):
-    """
-    Calculate the distance interval during which two AABBs can
-    overlap while the moving box travels along a direction.
-
-    This is a broad-phase calculation.  It does not prove that the
-    actual B-Rep solids collide; it only identifies distances worth
-    checking with exact geometry.
-    """
-
-    interval_min = start_distance
-    interval_max = end_distance
-
-    for axis in range(3):
-
-        velocity = direction[axis]
-        moving_min = moving_box["min"][axis]
-        moving_max = moving_box["max"][axis]
-        blocker_min = blocker_box["min"][axis]
-        blocker_max = blocker_box["max"][axis]
-
-        if abs(velocity) < 0.000000001:
-
-            if (
-                moving_max < blocker_min
-                or moving_min > blocker_max
-            ):
-                return None
-
-            continue
-
-        t1 = (
-            blocker_min - moving_max
-        ) / velocity
-
-        t2 = (
-            blocker_max - moving_min
-        ) / velocity
-
-        axis_min = min(t1, t2)
-        axis_max = max(t1, t2)
-
-        interval_min = max(
-            interval_min,
-            axis_min
-        )
-
-        interval_max = min(
-            interval_max,
-            axis_max
-        )
-
-        if interval_min > interval_max:
-            return None
-
-    return interval_min, interval_max
-
-
-def get_occurrence_world_bodies(
-    occurrence,
-    temp_brep_manager
-):
-    """
-    Create temporary world-coordinate copies of all solid B-Rep
-    bodies belonging to an occurrence.
-
-    The real Fusion model is never modified.
-    """
-
-    temporary_bodies = []
-
-    component = occurrence.component
-    bodies = component.bRepBodies
-    occurrence_transform = occurrence.transform2
-
-    for i in range(bodies.count):
-
-        body = bodies.item(i)
-
-        if not body:
-            continue
-
-        try:
-            if body.volume <= 0:
-                continue
-        except Exception:
-            continue
-
-        copied_body = temp_brep_manager.copy(
-            body
-        )
-
-        if not copied_body:
-            continue
-
-        if not temp_brep_manager.transform(
-            copied_body,
-            occurrence_transform
-        ):
-            continue
-
-        temporary_bodies.append(
-            copied_body
-        )
-
-    return temporary_bodies
-
-
-def exact_body_collision(
-    moving_bodies,
-    blocker_bodies,
-    temp_brep_manager,
-    volume_tolerance=0.000000001
-):
-    """
-    Perform exact B-Rep intersection tests between temporary bodies.
-
-    Returns True only when the intersection has non-zero volume.
-    Touching faces/edges therefore do not count as a collision.
-    """
-
-    intersection_type = (
-        adsk.fusion.BooleanTypes.IntersectionBooleanType
-    )
-
-    for moving_body in moving_bodies:
-
-        for blocker_body in blocker_bodies:
-
-            moving_copy = temp_brep_manager.copy(
-                moving_body
-            )
-
-            if not moving_copy:
-                continue
-
-            success = temp_brep_manager.booleanOperation(
-                moving_copy,
-                blocker_body,
-                intersection_type
-            )
-
-            if not success:
-                continue
-
-            try:
-                if moving_copy.volume > volume_tolerance:
-                    return True
-            except Exception:
-                continue
-
-    return False
-
-
-def test_single_motion(
-    moving_occurrence,
-    blocker_occurrences,
-    direction,
-    max_distance,
-    temp_brep_manager,
-    epsilon=0.01
-):
-    """
-    Test removal of one occurrence along one candidate direction.
-
-    The occurrence is never moved in the real Fusion document.
-    Temporary B-Rep copies are translated instead.
-    """
-
-    moving_bodies = get_occurrence_world_bodies(
-        moving_occurrence,
-        temp_brep_manager
-    )
-
-    if len(moving_bodies) == 0:
-        return {
-            "feasible": None,
-            "status": "no_solid_geometry",
-            "blocked_by": [],
-            "distance": None
-        }
-
-    moving_box = get_bounding_box(
-        moving_occurrence
-    )
-
-    blocker_data = []
-
-    for blocker_occurrence in blocker_occurrences:
-
-        blocker_bodies = get_occurrence_world_bodies(
-            blocker_occurrence,
-            temp_brep_manager
-        )
-
-        if len(blocker_bodies) == 0:
-            continue
-
-        blocker_data.append({
-            "occurrence": blocker_occurrence,
-            "bounding_box": get_bounding_box(
-                blocker_occurrence
-            ),
-            "bodies": blocker_bodies
-        })
-
-    collision_candidates = []
-
-    for blocker in blocker_data:
-
-        interval = get_swept_aabb_interval(
-            moving_box,
-            blocker["bounding_box"],
-            direction,
-            epsilon,
-            max_distance
-        )
-
-        if interval is None:
-            continue
-
-        interval_min, interval_max = interval
-
-        if interval_max < epsilon:
-            continue
-
-        interval_min = max(
-            interval_min,
-            epsilon
-        )
-
-        if interval_min > max_distance:
-            continue
-
-        interval_max = min(
-            interval_max,
-            max_distance
-        )
-
-        if interval_min <= interval_max:
-
-            collision_candidates.append({
-                "blocker": blocker,
-                "start": interval_min,
-                "end": interval_max
-            })
-
-    collision_candidates.sort(
-        key=lambda candidate: candidate["start"]
-    )
-
-    for candidate in collision_candidates:
-
-        blocker = candidate["blocker"]
-        start = candidate["start"]
-        end = candidate["end"]
-
-        test_distances = [start]
-
-        if end > start:
-
-            test_distances.append(
-                (start + end) / 2.0
-            )
-
-            test_distances.append(
-                end
-            )
-
-        for distance in test_distances:
-
-            if (
-                distance == start
-                and end > start
-            ):
-
-                distance = min(
-                    end,
-                    start + 0.001
-                )
-
-            test_bodies = []
-
-            for body in moving_bodies:
-
-                copied_body = (
-                    temp_brep_manager.copy(
-                        body
-                    )
-                )
-
-                if not copied_body:
-                    continue
-
-                transform = make_translation_matrix(
-                    direction,
-                    distance
-                )
-
-                if not temp_brep_manager.transform(
-                    copied_body,
-                    transform
-                ):
-                    continue
-
-                test_bodies.append(
-                    copied_body
-                )
-
-            if exact_body_collision(
-                test_bodies,
-                blocker["bodies"],
-                temp_brep_manager
-            ):
-
-                return {
-                    "feasible": False,
-                    "status": "blocked",
-                    "blocked_by": [
-                        blocker["occurrence"].name
-                    ],
-                    "distance": clean_number(
-                        distance
-                    )
-                }
-
-    return {
-        "feasible": True,
-        "status": "collision_free",
-        "blocked_by": [],
-        "distance": clean_number(
-            max_distance
-        )
-    }
-
-
-def get_assembly_motion_distance(
-    parts,
-    multiplier=2.0
-):
-    """
-    Choose a travel distance large enough to move a part clear of
-    the whole assembly.
-    """
-
-    if len(parts) == 0:
-        return 100.0
-
-    min_point = [
-        float("inf"),
-        float("inf"),
-        float("inf")
-    ]
-
-    max_point = [
-        float("-inf"),
-        float("-inf"),
-        float("-inf")
-    ]
-
-    for part in parts:
-
-        for axis in range(3):
-
-            min_point[axis] = min(
-                min_point[axis],
-                part["bounding_box"]["min"][axis]
-            )
-
-            max_point[axis] = max(
-                max_point[axis],
-                part["bounding_box"]["max"][axis]
-            )
-
-    diagonal = vector_length([
-        max_point[0] - min_point[0],
-        max_point[1] - min_point[1],
-        max_point[2] - min_point[2]
-    ])
-
-    return max(
-        10.0,
-        diagonal * multiplier
-    )
-
-
-def analyze_motion_directions(
-    parts,
-    fusion_occurrences,
-    max_distance
-):
-    """
-    Test every generated candidate direction against the CAD model.
-
-    Motion analysis is independent from assembly-axis
-    identification.
-    """
-
-    temp_brep_manager = (
-        adsk.fusion.TemporaryBRepManager.get()
-    )
-
-    if not temp_brep_manager:
-        return {
-            "method": "temporary_brep_motion_test",
-            "status": "unavailable",
-            "results": []
-        }
-
-    occurrence_map = {}
-
-    for occurrence in fusion_occurrences:
-        occurrence_map[occurrence.name] = occurrence
-
-    results = []
-
-    for part in parts:
-
-        occurrence = occurrence_map.get(
-            part["id"]
-        )
-
-        if not occurrence:
-            continue
-
-        candidates = generate_candidate_directions(
-            part["rotation"]
-        )
-
-        blocker_occurrences = [
-            other
-            for other in fusion_occurrences
-            if other.name != occurrence.name
-        ]
-
-        direction_results = []
-
-        for candidate in candidates:
-
-            motion = test_single_motion(
-                occurrence,
-                blocker_occurrences,
-                candidate["vector"],
-                max_distance,
-                temp_brep_manager
-            )
-
-            result = {
-                "name": candidate["name"],
-                "vector": candidate["vector"],
-                "frame": candidate["frame"],
-                "source": candidate["source"],
-                "removal": motion
-            }
-
-            if motion.get("feasible") is True:
-
-                result["insertion"] = {
-                    "vector": [
-                        clean_number(
-                            -candidate["vector"][0]
-                        ),
-                        clean_number(
-                            -candidate["vector"][1]
-                        ),
-                        clean_number(
-                            -candidate["vector"][2]
-                        )
-                    ],
-                    "derived_from":
-                        "reverse_of_collision_free_removal"
-                }
-
-            direction_results.append(
-                result
-            )
-
-        results.append({
-            "part": part["id"],
-            "max_travel_distance":
-                clean_number(
-                    max_distance
-                ),
-            "directions":
-                direction_results
-        })
-
-    return {
-        "method":
-            "temporary_brep_motion_test",
-
-        "status":
-            "complete",
-
-        "max_travel_distance":
-            clean_number(
-                max_distance
-            ),
-
-        "results":
-            results
-    }
-
-
-# ==========================================================
 # Joint graph and precedence analysis
 # ==========================================================
 
@@ -2354,7 +1174,8 @@ def get_joint_graph(relationships):
     relationships.
 
     The graph represents physical/CAD connectivity, not assembly
-    order.
+    order. Direction is deliberately added later by the precedence
+    analysis using the assembly axis and part heights.
     """
 
     graph = {}
@@ -2371,6 +1192,7 @@ def get_joint_graph(relationships):
             if evidence.get("type") == "joint":
 
                 has_joint_evidence = True
+
                 break
 
         if not has_joint_evidence:
@@ -2403,32 +1225,12 @@ def get_part_height_map(
     assembly_axis
 ):
     """
-    Calculate each part's scalar bottom position along the
-    selected assembly axis.
+    Calculate each part's scalar position along the assembly axis.
 
-    IMPORTANT:
+    For +Z, use the bottom of the full occurrence bounding box.
 
-    This uses the minimum projection of the part's entire
-    bounding box onto the assembly axis.
-
-    It does NOT use:
-
-        occurrence.position
-
-    because the occurrence origin is not necessarily the
-    physical bottom of the part.
-
-    For example, if:
-
-        External1 bbox = Z 3.999 -> 9.001
-        External3 bbox = Z 8.999 -> 17.001
-
-    then their assembly heights are:
-
-        External1 = 3.999
-        External3 = 8.999
-
-    for +Z assembly.
+    For other axes, use the occurrence position projected onto
+    the selected axis.
     """
 
     axis = normalize_vector(
@@ -2439,15 +1241,38 @@ def get_part_height_map(
 
     for part in parts:
 
-        min_projection, max_projection = (
-            get_bbox_axis_projection_range(
-                part["bounding_box"],
-                axis
+        if vectors_are_close(
+            axis,
+            [0, 0, 1]
+        ):
+
+            height = part.get(
+                "assembly_height",
+                None
             )
-        )
+
+            if height is None:
+
+                position = part["position"]
+
+                height = (
+                    position[0] * axis[0]
+                    + position[1] * axis[1]
+                    + position[2] * axis[2]
+                )
+
+        else:
+
+            position = part["position"]
+
+            height = (
+                position[0] * axis[0]
+                + position[1] * axis[1]
+                + position[2] * axis[2]
+            )
 
         heights[part["id"]] = clean_number(
-            min_projection
+            height
         )
 
     return heights
@@ -2489,16 +1314,21 @@ def analyze_joint_precedence(
     Important distinction:
 
         joint graph       = which parts are connected
-        precedence graph  = which connected part comes first
+        precedence graph  = which connected part must come first
 
-    For the current bottom-up assembly model:
+    A Fusion joint by itself is not an ordering statement.
+
+    For the current Visionary bottom-up assembly model, a joint
+    connecting a lower part to a higher part gives:
 
         lower part -> higher part
 
-    Equal-height connected parts remain ambiguous.
+    Equal-height pairs are kept as ambiguous rather than being
+    given an arbitrary order.
 
-    The height is the minimum bounding-box projection along the
-    selected assembly axis.
+    This function intentionally produces a partial order.
+    It does not force a single assembly sequence when the CAD
+    model permits branches.
     """
 
     heights = get_part_height_map(
@@ -2519,10 +1349,12 @@ def analyze_joint_precedence(
 
         for part_b in joint_graph[part_a]:
 
-            pair_key = tuple(sorted([
-                part_a,
-                part_b
-            ]))
+            pair_key = tuple(
+                sorted([
+                    part_a,
+                    part_b
+                ])
+            )
 
             if pair_key in processed_pairs:
                 continue
@@ -2552,12 +1384,9 @@ def analyze_joint_precedence(
                 ambiguous_pairs.append({
                     "part_a": part_a,
                     "part_b": part_b,
-                    "reason":
-                        "same_assembly_height",
-                    "evidence":
-                        "fusion_joint",
-                    "confidence":
-                        "high"
+                    "reason": "same_assembly_height",
+                    "evidence": "fusion_joint",
+                    "confidence": "high"
                 })
 
                 continue
@@ -2587,7 +1416,7 @@ def analyze_joint_precedence(
                 )
 
     # ------------------------------------------------------
-    # Build directed adjacency.
+    # Build directed adjacency from the precedence edges.
     # ------------------------------------------------------
 
     precedence_graph = {}
@@ -2607,15 +1436,12 @@ def analyze_joint_precedence(
             precedence_graph[after] = []
 
         if after not in precedence_graph[before]:
-
-            precedence_graph[
-                before
-            ].append(
+            precedence_graph[before].append(
                 after
             )
 
     # ------------------------------------------------------
-    # Roots and leaves.
+    # Identify graph roots and leaves.
     # ------------------------------------------------------
 
     incoming_count = {}
@@ -2640,13 +1466,16 @@ def analyze_joint_precedence(
         if len(
             precedence_graph[part]
         ) == 0:
+
             leaves.append(part)
+
+    # Sort roots/leaves to make JSON deterministic.
 
     roots.sort()
     leaves.sort()
 
     # ------------------------------------------------------
-    # Connected components.
+    # Find connected components of the joint graph.
     # ------------------------------------------------------
 
     connected_components = []
@@ -2666,6 +1495,7 @@ def analyze_joint_precedence(
         while stack:
 
             current = stack.pop()
+
             component.append(
                 current
             )
@@ -2693,7 +1523,7 @@ def analyze_joint_precedence(
 
     return {
         "method":
-            "fusion_joint_graph_plus_assembly_axis_bbox_height",
+            "fusion_joint_graph_plus_assembly_axis_height",
 
         "assembly_axis":
             assembly_axis,
@@ -2757,15 +1587,10 @@ def run(context):
         # Assembly configuration
         # ==================================================
 
-        # Assembly axis is determined automatically after
-        # relationships have been extracted.
-        assembly_axis = None
-
         assembly = {
             "assembly": {
                 "name": root.name,
-                "units": "mm",
-                "assembly_axis": None
+                "units": "mm"
             },
 
             "components": [],
@@ -2776,11 +1601,7 @@ def run(context):
 
             "direction_analysis": [],
 
-            "axis_analysis": {},
-
-            "precedence_analysis": {},
-
-            "motion_analysis": {}
+            "precedence_analysis": {}
         }
 
         # ==================================================
@@ -2790,14 +1611,10 @@ def run(context):
         components_seen = set()
 
         # ==================================================
-        # Store occurrence information
+        # Store occurrence information for analysis
         # ==================================================
 
         occurrences = []
-
-        # Keep actual Fusion occurrence objects separately
-        # for temporary-B-Rep motion testing.
-        fusion_occurrences = []
 
         # ==================================================
         # Export occurrences
@@ -2819,9 +1636,7 @@ def run(context):
                 occurrence
             )
 
-            component_id = (
-                occurrence.component.name
-            )
+            component_id = occurrence.component.name
 
             # ----------------------------------------------
             # Component definition
@@ -2832,8 +1647,7 @@ def run(context):
                 component = occurrence.component
 
                 assembly["components"].append({
-                    "id":
-                        component_id,
+                    "id": component_id,
 
                     "bounding_box":
                         get_component_bounds(
@@ -2846,9 +1660,13 @@ def run(context):
                 )
 
             # ----------------------------------------------
-            # Retain raw +Z height for exported information.
+            # Assembly height
             #
-            # Precedence does NOT use this value anymore.
+            # This remains the bottom of the occurrence
+            # bounding box along +Z.
+            #
+            # It is used by precedence AFTER the global
+            # assembly axis has been selected.
             # ----------------------------------------------
 
             assembly_height = (
@@ -2886,7 +1704,7 @@ def run(context):
             )
 
             # ----------------------------------------------
-            # Relationship-analysis representation
+            # Save occurrence for relationship analysis
             # ----------------------------------------------
 
             occurrences.append({
@@ -2896,10 +1714,6 @@ def run(context):
                 "bounding_box":
                     bounding_box
             })
-
-            fusion_occurrences.append(
-                occurrence
-            )
 
         # ==================================================
         # Geometric relationships
@@ -2934,10 +1748,41 @@ def run(context):
         )
 
         # ==================================================
-        # Candidate directions
+        # Assembly axis identification
+        # ==================================================
         #
-        # These are still used only for individual-part
-        # motion analysis.
+        # IMPORTANT:
+        #
+        # This is now determined from relationship/interface
+        # geometry rather than center-to-center displacement.
+        #
+        # Motion/collision analysis is deliberately NOT part
+        # of this decision.
+        # ==================================================
+
+        axis_analysis = (
+            analyze_global_assembly_axis(
+                assembly["parts"],
+                assembly["relationships"]
+            )
+        )
+
+        assembly_axis = (
+            axis_analysis[
+                "selected_axis_vector"
+            ]
+        )
+
+        assembly["assembly"][
+            "assembly_axis"
+        ] = assembly_axis
+
+        assembly["assembly"][
+            "axis_analysis"
+        ] = axis_analysis
+
+        # ==================================================
+        # Candidate direction generation
         # ==================================================
 
         assembly["direction_analysis"] = (
@@ -2947,79 +1792,7 @@ def run(context):
         )
 
         # ==================================================
-        # GLOBAL ASSEMBLY-AXIS IDENTIFICATION
-        # ==================================================
-        #
-        # Stage 1:
-        #
-        #     Identify X vs Y vs Z.
-        #
-        # Stage 2:
-        #
-        #     Orient the selected axis into an assembly
-        #     direction.
-        #
-        # Motion/collision is NOT involved.
-        # ==================================================
-
-        assembly["axis_analysis"] = (
-            analyze_assembly_axis(
-                assembly["parts"],
-                assembly["relationships"]
-            )
-        )
-
-        selected_axis = (
-            assembly["axis_analysis"].get(
-                "selected_axis"
-            )
-        )
-
-        if selected_axis is None:
-
-            ui.messageBox(
-                "Assembly-axis identification could not "
-                "determine an axis from the available "
-                "CAD relationships."
-            )
-
-            return
-
-        assembly_axis = selected_axis
-
-        assembly["assembly"][
-            "assembly_axis"
-        ] = assembly_axis
-
-        # ==================================================
-        # CAD motion / collision analysis
-        # ==================================================
-        #
-        # This remains completely independent of the global
-        # assembly-axis decision.
-        # ==================================================
-
-        max_motion_distance = (
-            get_assembly_motion_distance(
-                assembly["parts"]
-            )
-        )
-
-        assembly["motion_analysis"] = (
-            analyze_motion_directions(
-                assembly["parts"],
-                fusion_occurrences,
-                max_motion_distance
-            )
-        )
-
-        # ==================================================
-        # Precedence analysis
-        #
-        # This happens AFTER assembly-axis identification.
-        #
-        # Heights are derived from the bounding-box projection
-        # onto the selected assembly axis.
+        # Precedence analysis from Fusion joint graph
         # ==================================================
 
         assembly["precedence_analysis"] = (
@@ -3070,49 +1843,31 @@ def run(context):
         # Confirmation
         # ==================================================
 
-        axis_name = (
-            assembly["axis_analysis"].get(
-                "selected_name",
-                "unknown"
-            )
-        )
-
-        axis_confidence = (
-            assembly["axis_analysis"].get(
-                "confidence",
-                "unknown"
-            )
-        )
-
-        precedence_edges = (
-            assembly[
-                "precedence_analysis"
-            ][
-                "precedence_edges"
-            ]
-        )
-
         ui.messageBox(
             "Export complete!\n\n"
             + "Parts: "
             + str(
-                len(
-                    assembly["parts"]
-                )
+                len(assembly["parts"])
             )
             + "\n"
             + "Relationships: "
             + str(
-                len(
-                    assembly["relationships"]
-                )
+                len(assembly["relationships"])
             )
             + "\n"
-            + "Assembly axis: "
-            + axis_name
+            + "Selected axis: "
+            + str(
+                assembly["assembly"][
+                    "axis_analysis"
+                ]["selected_axis"]
+            )
             + "\n"
             + "Axis confidence: "
-            + axis_confidence
+            + str(
+                assembly["assembly"][
+                    "axis_analysis"
+                ]["confidence"]
+            )
             + "\n"
             + "Direction analyses: "
             + str(
@@ -3123,22 +1878,14 @@ def run(context):
                 )
             )
             + "\n"
-            + "Motion analyses: "
-            + str(
-                len(
-                    assembly[
-                        "motion_analysis"
-                    ].get(
-                        "results",
-                        []
-                    )
-                )
-            )
-            + "\n"
             + "Precedence edges: "
             + str(
                 len(
-                    precedence_edges
+                    assembly[
+                        "precedence_analysis"
+                    ][
+                        "precedence_edges"
+                    ]
                 )
             )
             + "\n\n"
