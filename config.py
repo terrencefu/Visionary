@@ -8,6 +8,10 @@ PREVIEW_ROTATE_180 = True
 CAMERA_CALIBRATION = ROOT / "camera_calibration_1080p.npz"
 PROJECTOR_CALIBRATION = ROOT / "projector_calibration.npz"
 DATA_DIR = ROOT / "data"
+PLANAR_CALIBRATION = ROOT / "planar_calibration.json"
+PLANAR_RANSAC_PX = 3.0
+PLANAR_MIN_COVERAGE = 0.20  # Inlier convex hull / usable board area.
+PLANAR_VALIDATION_MAX_MM = 5.0
 
 ARUCO_DICTIONARY = "DICT_4X4_50"
 # No defaults from the old temporary fixture. All marker tops face board -Y.
