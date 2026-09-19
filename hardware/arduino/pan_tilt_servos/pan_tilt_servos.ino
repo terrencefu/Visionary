@@ -16,85 +16,19 @@ const int TILT_MAX_US = 1500;
 const int PAN_HOME_US  = 1500;
 const int TILT_HOME_US = 1000;
 
-// Motion speed: 100 us of travel takes 2 seconds.
-// Increase MS_PER_US for slower movement.
-const unsigned long MS_PER_US = 20;
-const unsigned long MIN_MOVE_MS = 800;
-const unsigned long UPDATE_MS = 20;
-
 struct Axis {
   uint8_t channel;
   int minUs;
   int maxUs;
   int pulse;
-  int startPulse;
-  int target;
   bool enabled;
-  bool moving;
-  unsigned long started;
-  unsigned long duration;
 };
 
-Axis pan = {
-  PAN_CHANNEL,
-  PAN_MIN_US,
-  PAN_MAX_US,
-  PAN_HOME_US,
-  PAN_HOME_US,
-  PAN_HOME_US,
-  false,
-  false,
-  0,
-  0
-};
-
-Axis tilt = {
-  TILT_CHANNEL,
-  TILT_MIN_US,
-  TILT_MAX_US,
-  TILT_HOME_US,
-  TILT_HOME_US,
-  TILT_HOME_US,
-  false,
-  false,
-  0,
-  0
-};
+Axis pan = {PAN_CHANNEL, PAN_MIN_US, PAN_MAX_US, PAN_HOME_US, false};
+Axis tilt = {TILT_CHANNEL, TILT_MIN_US, TILT_MAX_US, TILT_HOME_US, false};
 
 String inputLine;
 bool discardLine = false;
-unsigned long lastUpdate = 0;
-
-// S-curve: zero speed and acceleration at both ends.
-float ease(float t) {
-  return t * t * t * (10.0f + t * (-15.0f + 6.0f * t));
-}
-
-void updateAxis(Axis &axis, unsigned long now) {
-  if (!axis.enabled || !axis.moving) {
-    return;
-  }
-
-  unsigned long elapsed = now - axis.started;
-  int nextPulse;
-
-  if (elapsed >= axis.duration) {
-    nextPulse = axis.target;
-    axis.moving = false;
-  } else {
-    float t = (float)elapsed / axis.duration;
-    float position =
-      axis.startPulse +
-      (axis.target - axis.startPulse) * ease(t);
-
-    nextPulse = (int)(position + 0.5f);
-  }
-
-  if (nextPulse != axis.pulse) {
-    axis.pulse = nextPulse;
-    pca.writeMicroseconds(axis.channel, axis.pulse);
-  }
-}
 
 void moveTo(Axis &axis, int target) {
   if (target < axis.minUs || target > axis.maxUs) {
@@ -106,51 +40,14 @@ void moveTo(Axis &axis, int target) {
     return;
   }
 
-  // Finish the current curve before starting another.
-  if (axis.moving) {
-    Serial.println("Still moving. Wait, or send OFF.");
-    return;
-  }
-
-  if (!axis.enabled) {
-    // No position feedback: first enable cannot be ramped
-    // reliably from the actual physical starting angle.
-    axis.pulse = target;
-    axis.startPulse = target;
-    axis.target = target;
-    axis.enabled = true;
-    axis.moving = false;
-
-    pca.writeMicroseconds(axis.channel, target);
-
-    Serial.print(axis.channel == PAN_CHANNEL ? "Pan" : "Tilt");
-    Serial.println(" initially positioned; now holding.");
-    return;
-  }
-
-  int distance = abs(target - axis.pulse);
-
-  if (distance == 0) {
-    Serial.println("Already commanding that position.");
-    return;
-  }
-
-  axis.startPulse = axis.pulse;
-  axis.target = target;
-  axis.duration = (unsigned long)distance * MS_PER_US;
-
-  if (axis.duration < MIN_MOVE_MS) {
-    axis.duration = MIN_MOVE_MS;
-  }
-
-  axis.started = millis();
-  axis.moving = true;
+  // Apply the requested pulse immediately, without a software ramp.
+  pca.writeMicroseconds(axis.channel, target);
+  axis.pulse = target;
+  axis.enabled = true;
 
   Serial.print(axis.channel == PAN_CHANNEL ? "Pan -> " : "Tilt -> ");
   Serial.print(target);
-  Serial.print(" us over ");
-  Serial.print(axis.duration / 1000.0f, 2);
-  Serial.println(" seconds.");
+  Serial.println(" us.");
 }
 
 void stopAll() {
@@ -159,11 +56,6 @@ void stopAll() {
 
   pan.enabled = false;
   tilt.enabled = false;
-  pan.moving = false;
-  tilt.moving = false;
-
-  pan.target = pan.pulse;
-  tilt.target = tilt.pulse;
 
   Serial.println("Signals OFF. Support the assembly.");
 }
@@ -172,14 +64,11 @@ void printAxis(const char *name, const Axis &axis) {
   Serial.print(name);
   Serial.print(": commanded ");
   Serial.print(axis.pulse);
-  Serial.print(" us; target ");
-  Serial.print(axis.target);
   Serial.print(" us; ");
 
   if (!axis.enabled) {
     Serial.println("OFF");
-  } else if (axis.moving) {
-    Serial.println("MOVING");
+
   } else {
     Serial.println("HOLDING");
   }
@@ -210,11 +99,6 @@ void handleCommand(String command) {
   }
 
   if (command == "HOME") {
-    if (pan.moving || tilt.moving) {
-      Serial.println("Wait for movement to finish before HOME.");
-      return;
-    }
-
     moveTo(pan, PAN_HOME_US);
     moveTo(tilt, TILT_HOME_US);
     return;
@@ -306,11 +190,4 @@ void loop() {
     }
   }
 
-  unsigned long now = millis();
-
-  if (now - lastUpdate >= UPDATE_MS) {
-    lastUpdate = now;
-    updateAxis(pan, now);
-    updateAxis(tilt, now);
-  }
 }
