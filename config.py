@@ -12,7 +12,15 @@ DATA_DIR = ROOT / "data"
 ARUCO_DICTIONARY = "DICT_4X4_50"
 # No defaults from the old temporary fixture. All marker tops face board -Y.
 MARKER_SIZE_MM = 30.0
-MARKER_CENTERS_MM = {}  # id: (x_mm, y_mm), e.g. measured centers of IDs 0..3
+# Origin: marker 0 center. +X points toward marker 1; +Y toward the lower row.
+# Center distances: 0-1=493, 0-2=310, 1-3=305, 2-3=493 mm.
+# Estimated from the approximate 0-3 diagonal of 580 mm; refine for final calibration.
+MARKER_CENTERS_MM = {
+    0: (0.0, 0.0),
+    1: (493.0, 0.0),
+    2: (0.36, 310.0),
+    3: (493.33, 305.0),
+}
 BOARD_BOUNDS_MM = None  # (min_x, min_y, max_x, max_y), actual flat surface
 MIN_VISIBLE_MARKERS = 3
 MAX_ARUCO_RMS_PX = 2.0
@@ -49,7 +57,7 @@ MAX_RIG_ROTATION_SPREAD_DEG = 2.0
 MAX_RIG_TRANSLATION_SPREAD_MM = 10.0
 
 
-def validate_fixture():
+def validate_fixture(require_bounds=True):
     import numpy as np
     if MARKER_SIZE_MM is None or not np.isfinite(MARKER_SIZE_MM) or MARKER_SIZE_MM <= 0:
         raise ValueError("Set measured MARKER_SIZE_MM in config.py first.")
@@ -60,6 +68,8 @@ def validate_fixture():
             raise ValueError("Marker IDs must be integers in DICT_4X4_50 (0..49).")
         if np.shape(center) != (2,) or not np.isfinite(center).all():
             raise ValueError(f"Invalid center for marker {marker_id}.")
+    if BOARD_BOUNDS_MM is None and not require_bounds:
+        return
     if BOARD_BOUNDS_MM is None or len(BOARD_BOUNDS_MM) != 4:
         raise ValueError("Set BOARD_BOUNDS_MM to the measured flat calibration surface.")
     x0, y0, x1, y1 = BOARD_BOUNDS_MM

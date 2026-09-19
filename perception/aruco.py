@@ -35,7 +35,7 @@ def marker_corners(marker_id):
 
 class BoardTracker:
     def __init__(self, K, dist):
-        config.validate_fixture()
+        config.validate_fixture(require_bounds=False)
         self.K, self.dist = K, dist
         self.detector = make_detector()
 

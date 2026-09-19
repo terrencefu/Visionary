@@ -42,7 +42,10 @@ class GeometryTests(unittest.TestCase):
 
     def test_multimarker_pose_and_unknown_id(self):
         centers = {0: (0, 0), 1: (320, 0), 2: (0, 240), 3: (320, 240)}
-        with patch.multiple(config, MARKER_SIZE_MM=30., MARKER_CENTERS_MM=centers, BOARD_BOUNDS_MM=(-30, -30, 350, 270)):
+        with patch.multiple(config, MARKER_SIZE_MM=30., MARKER_CENTERS_MM=centers, BOARD_BOUNDS_MM=None):
+            # Pose estimation needs marker geometry; projection additionally needs surface bounds.
+            with self.assertRaisesRegex(ValueError, "BOARD_BOUNDS_MM"):
+                config.validate_fixture()
             tracker = BoardTracker(self.K, self.dist)
             expected = pose_matrix([0.2, -0.1, 0.1], [-100., -100., 1000.])
             rvec = cv2.Rodrigues(expected[:3, :3])[0]
