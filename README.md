@@ -113,14 +113,17 @@ Pass `expected_pose` as well and `result.error` carries `correct`, `dx_mm`, `dy_
 
 ```text
 perception/change_detector.py  before/after diff -> changed region. LOCALISATION ONLY.
+perception/rectify.py          metric top-down view of the board plane -- match HERE
 perception/part_matcher.py     HsvOutlineMatcher: is this the expected part?
 perception/part_catalog.py     per-part HSV + top-down outline (mm) -- EDIT THIS for real parts
-perception/pose_estimator.py   template-alignment x/y/theta, and the px -> board mm bridge
+perception/pose_estimator.py   template-alignment x/y/theta in the rectified plane
 perception/validator.py        observed vs CAD target -> the correction to apply
 perception/pipeline.py         detect_and_validate(...), the front door
 assembly/state_machine.py      baseline + stillness + step sequencing
 assembly/demo_perception.py    python main.py perceive
 ```
+
+**The camera views the workspace at 30-45 degrees, so nothing is matched in raw image space.** The changed region is rectified into a metric top-down view of the board plane first. That fixes three things at once: perspective foreshortening (~29% compression at 45 degrees), varying px/mm across a tilted view, and handedness -- a valid camera shows board +Y *upward* while `part_catalog` draws it downward, so a raw-space template match compares a part against its own mirror. Chiral parts then never match while symmetric ones keep working, which is a miserable failure to diagnose. `camera_height_above_board()` guards the pose that causes it.
 
 **Conventions, now fixed** (the yaw sign/origin this README previously left open):
 
@@ -129,7 +132,8 @@ assembly/demo_perception.py    python main.py perceive
 - **`x_mm` / `y_mm`** are the **area centroid of the part silhouette**, not the origin of its outline drawing. **The CAD target pose must use the same reference point.**
 - **Angle errors are folded by `symmetry_deg`.** A 2Ã—4 brick placed end for end is not an error; an asymmetric part placed backwards is a 180Â° error.
 - **`dx_mm`, `dy_mm`, `dtheta_deg` are the correction still to apply** (`expected - observed`), in board axes. Turning `+X` into a LEFT/RIGHT arrow depends on where the user stands and where the projector is, so that mapping belongs to the projection subsystem, not here.
-- **Undistorted pixels.** Detection and pose run on undistorted frames in the same K, because lens distortion bends a silhouette before its angle is measured and cannot be undone afterwards. Board geometry then uses `perception.geometry.board_point_from_undistorted_pixel`, the sibling of `camera_pixel_to_board`; feeding undistorted pixels to the latter would undistort them twice. Parts are assumed to sit on the base plane z=0.
+- **Undistorted, then rectified.** Detection runs on undistorted frames in the same K, because lens distortion bends a silhouette before its angle is measured and cannot be undone afterwards. Matching and pose then run in the rectified board plane, where rectified pixels *are* board millimetres. `perception.geometry.board_point_from_undistorted_pixel` is the sibling of `camera_pixel_to_board` for pixels already undistorted; feeding undistorted pixels to the latter would undistort them twice.
+- **Each step names the plane it rests on.** `Step.z_mm` (or `assembly_height` from the CAD side) is the height of the surface the part sits on. Measuring a raised part on the z=0 plane gives a systematic outward error of `r*z/(H-z)` -- about 4 mm for one brick layer near the board edge, which reads as drift, not noise.
 - **Marker quads are excluded** from the change search, so markers never become candidate parts.
 - **Call `set_baseline()` at SHOW_NEXT_STEP, before the user reaches in**, and with the projector showing whatever it will show during the step â€” its light contaminates the camera image. `AssemblyState` re-baselines automatically when a step completes.
 
@@ -141,21 +145,28 @@ Fusion supplies a part ID and CAD target pose; later register CAD to board/world
 
 `python -m unittest discover -s tests -v` runs 93 synthetic checks of distorted raw-pixel geometry, upside-down ArUco detection, multi-marker pose, transform composition, green detection, rigid-calibration recovery, rejection of moving-mount/degenerate data, and the whole perception slice â€” silhouette alignment across the full circle, part pose recovered in board millimetres through the real lens model and the upside-down mount, hand and marker rejection, wrong-part naming, symmetry folding, and step sequencing. It does not replace hardware calibration or physical error measurements.
 
-Perception is validated **synthetically only**: parts are rendered as flat polygons, projected through the real `camera_calibration_1080p.npz` lens model onto the measured 493Ã—305 mm fixture, and recovered. 135 placements per height (3 parts Ã— 3Ã—3 board positions Ã— 5 angles), camera rolled 180Â° with a slight tilt:
+Perception is validated **synthetically only**: parts are rendered, projected through the real `camera_calibration_1080p.npz` lens model onto the measured 493×305 mm fixture, and recovered. 108 placements per row (3 parts × 3×3 positions × 4 angles), camera 700 mm from the board centre and mounted upside down.
 
-| camera height | px/mm | found | position mean / max | angle mean / max |
-|---|---|---|---|---|
-| 400 mm | 2.78 | 135/135 | 0.10 / 0.28 mm | 0.35Â° / 1.12Â° |
-| 600 mm | 1.85 | 135/135 | 0.15 / 0.49 mm | 0.55Â° / 1.87Â° |
-| 800 mm | 1.39 | 135/135 | 0.21 / 0.62 mm | 0.70Â° / 2.68Â° |
-| 900 mm | 1.23 | 135/135 | 0.23 / 0.72 mm | 0.73Â° / 2.99Â° |
+**Flat parts, across the real operating range of camera angles** — rectification makes accuracy essentially independent of viewing angle:
 
-About **80 ms** per `detect_and_validate` call at 1080p, roughly a third of it the two `cv2.undistort` calls that `AssemblyState` avoids repeating.
+| camera elevation | found | position mean / max | angle mean / max |
+|---|---|---|---|
+| 0° (overhead) | 108/108 | 0.18 / 0.58 mm | 0.33° / 2.0° |
+| 30° | 108/108 | 0.17 / 0.52 mm | 0.63° / 2.0° |
+| 40° | 108/108 | 0.16 / 0.46 mm | 0.63° / 2.5° |
+| 50° | 108/108 | 0.20 / 0.46 mm | 0.80° / 3.0° |
 
-**Mount the camera between 400 and 900 mm.** Below ~1 px/mm (above ~1100 mm) detection collapses, and it collapses by shape: `green_wedge` â€” nearly a rectangle â€” is lost first at 1300 mm, `blue_2x4` at 1500 mm, and the chiral `red_l_plate` still resolves at 0.74 px/mm. That is the concavity argument in `part_catalog.py`, measured. The 82Â°Ã—52Â° FOV means the board fits the frame from 400 mm up, so there is no reason to mount high.
+About **87 ms** per `detect_and_validate` call at 1080p.
+
+**Part height is the real limit, and it is not fixable from a top-down outline.** At an angle the camera sees a part's *sides*, so the silhouette grows by roughly `height × tan(elevation)` — about 7 mm for a LEGO brick at 35°. Matching that against a flat footprint template degrades and then fails outright:
+
+| part height | found (at 35°) | position mean | template IoU |
+|---|---|---|---|
+| flat | 36/36 | 0.18 mm | 0.97 |
+| 3.2 mm (plate) | 36/36 | 1.18 mm | 0.89 |
+| 6 mm | **8/36** | 1.71 mm | 0.86 |
+| 9.6 mm (brick) | **0/36** | — | — |
+
+So **anything taller than ~4 mm needs a 3D mesh per component from the CAD side**, not a top-down outline: the expected silhouette then gets synthesised at runtime by projecting the mesh through the measured board pose, which is the only correct approach when the camera angle is variable. Flat plates work today; bricks do not.
 
 Those numbers measure the geometry, not the world. No real webcam frame, no real brick, and no venue lighting has been through this yet. Real accuracy will be set by segmentation quality â€” HSV tuning, shadow, glare, projector light on the part â€” not by the alignment, and it will be worse. Measure it on hardware before trusting any of it.
-
-Initial verification on this machine: Python 3.11.16, OpenCV 4.14.0, NumPy 2.4.6; all 10 synthetic tests passed and `pip check` reported no dependency conflicts. Camera index 0 captured 10 raw 1920Ã—1080 frames successfully outside the execution sandbox. Only the primary 1920Ã—1200 laptop display was enumerated. No real intrinsic/projector calibration or physical world-lock validation has been completed yet.
-
-Reference: [OpenCV calibration and transform conventions](https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html).

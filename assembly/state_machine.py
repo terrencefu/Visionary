@@ -37,14 +37,19 @@ class Step:
     target_pose: dict                # {"x_mm", "y_mm", "theta_deg"} in board mm
     tol_mm: float | None = None
     tol_deg: float | None = None
+    z_mm: float = 0.0                # height of the plane this part rests on
     extra: dict = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data):
         """Build from the CAD side's step dict. Extra keys are kept, not dropped."""
-        known = {"part_id", "target_pose", "tol_mm", "tol_deg"}
-        return cls(part_id=data["part_id"], target_pose=dict(data["target_pose"]),
+        known = {"part_id", "target_pose", "tol_mm", "tol_deg", "z_mm", "assembly_height"}
+        target = dict(data["target_pose"])
+        # The CAD side calls it assembly_height; a target pose may also carry z_mm.
+        z = data.get("z_mm", data.get("assembly_height", target.get("z_mm", 0.0)))
+        return cls(part_id=data["part_id"], target_pose=target,
                    tol_mm=data.get("tol_mm"), tol_deg=data.get("tol_deg"),
+                   z_mm=float(z),
                    extra={k: v for k, v in data.items() if k not in known})
 
 
@@ -117,7 +122,7 @@ class AssemblyState:
         result = detect_and_validate(
             self._baseline_undistorted, cv2.undistort(frame, camera_matrix, dist_coeffs),
             step.part_id, board_pose, camera_matrix, dist_coeffs, already_undistorted=True,
-            expected_pose=step.target_pose, matcher=self.matcher,
+            expected_pose=step.target_pose, matcher=self.matcher, z_mm=step.z_mm,
             tol_mm=step.tol_mm if step.tol_mm is not None else self.tol_mm,
             tol_deg=step.tol_deg if step.tol_deg is not None else self.tol_deg,
             symmetry_deg=getattr(part_catalog.CATALOG.get(step.part_id), "symmetry_deg", 360))

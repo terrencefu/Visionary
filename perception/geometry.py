@@ -15,6 +15,18 @@ def camera_pixel_to_board(u, v, rvec, tvec, K, dist):
     return _board_intersection(xy, rvec, tvec)
 
 
+def camera_height_above_board(rvec, tvec):
+    """Signed height of the camera centre above the board plane, in mm.
+
+    Must be positive. A negative value means the pose puts the camera underneath
+    the table, which still passes a positive-depth check for flat parts but
+    MIRRORS every silhouette -- chiral parts then never match, while symmetric
+    ones keep working. Cheap to check, miserable to debug.
+    """
+    R = cv2.Rodrigues(np.asarray(rvec, dtype=float).reshape(3, 1))[0]
+    return float((-R.T @ np.asarray(tvec, dtype=float).reshape(3))[2])
+
+
 def board_point_from_undistorted_pixel(u, v, rvec, tvec, K):
     """Same intersection, for a pixel that is ALREADY undistorted in the same K.
 

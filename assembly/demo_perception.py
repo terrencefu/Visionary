@@ -48,13 +48,19 @@ def annotate(view, update, tracker, board_pose, total_steps):
         x, y, w, h = result.region.bbox
         cv2.rectangle(view, (x, y), (x + w, y + h), colour, 2)
 
-    if result is not None and result.pose_px is not None:
-        pose = result.pose_px
-        centre = np.array([pose.x_px, pose.y_px])
-        tip = centre + 60.0 * pose.part_axis_px
-        cv2.circle(view, tuple(centre.astype(int)), 5, colour, -1)
-        cv2.arrowedLine(view, tuple(centre.astype(int)), tuple(tip.astype(int)),
-                        colour, 2, tipLength=0.25)
+    if result is not None and result.pose_px is not None and result.rect is not None:
+        # The pose is measured in the rectified board plane; map it back to the
+        # image to draw it, rather than pretending rectified pixels are image ones.
+        rect, pose = result.rect, result.pose_px
+        centre_mm = rect.to_board(pose.x_px, pose.y_px)
+        theta = np.radians(rect.theta_to_board(pose.theta_deg))
+        tip_mm = centre_mm + 25.0 * np.array([np.cos(theta), np.sin(theta)])
+        points = cv2.projectPoints(
+            np.array([[*centre_mm, rect.z_mm], [*tip_mm, rect.z_mm]]),
+            board_pose.rvec, board_pose.tvec, tracker.K, np.zeros(5))[0].reshape(-1, 2)
+        centre, tip = points[0].astype(int), points[1].astype(int)
+        cv2.circle(view, tuple(centre), 5, colour, -1)
+        cv2.arrowedLine(view, tuple(centre), tuple(tip), colour, 2, tipLength=0.25)
 
     lines = [f"[{update.phase.value}] {update.guidance}"]
     if update.step is not None:

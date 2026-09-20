@@ -87,3 +87,50 @@ def render_part_on_board(frame, outline_mm, x_mm, y_mm, theta_deg, rvec, tvec, K
     polygon = project_part_to_image(outline_mm, x_mm, y_mm, theta_deg, rvec, tvec, K, dist)
     cv2.fillPoly(frame, [np.round(polygon).astype(np.int32)], bgr)
     return frame
+
+
+def board_camera(elev_deg=25.0, azim_deg=200.0, distance_mm=700.0,
+                 look_at=(246.5, 152.5), upside_down=True):
+    """A PHYSICALLY VALID camera pose: on the +z side of the board, aimed at it.
+
+    elev_deg is the angle between the optical axis and the board normal, so 0 is
+    straight down and 40 is a steeply angled view. Returns (rvec, tvec), board -> camera.
+
+    Getting the side wrong mirrors every silhouette, which no amount of in-plane
+    rotation can undo -- see test_camera_fixture.py.
+    """
+    a, f = np.radians(elev_deg), np.radians(azim_deg)
+    target = np.array([look_at[0], look_at[1], 0.0])
+    centre = target + distance_mm * np.array([np.sin(a) * np.cos(f),
+                                              np.sin(a) * np.sin(f), np.cos(a)])
+    z = target - centre
+    z /= np.linalg.norm(z)
+    ref = np.array([0.0, 0.0, 1.0]) if abs(z[2]) < 0.99 else np.array([0.0, 1.0, 0.0])
+    x = np.cross(ref, z)
+    x /= np.linalg.norm(x)
+    y = np.cross(z, x)
+    if upside_down:                      # the rig's camera is mounted inverted
+        x, y = -x, -y
+    R = np.stack([x, y, z]).astype(float)
+    return cv2.Rodrigues(R)[0].ravel(), (-R @ centre).astype(float)
+
+
+def render_part_on_board_at_height(frame, outline_mm, x_mm, y_mm, theta_deg, height_mm,
+                                   rvec, tvec, K, dist, bgr, base_mm=0.0):
+    """Silhouette of an EXTRUDED part: bottom face, top face and the side quads.
+
+    A flat polygon is only honest for a zero-height part. At an angled view a real
+    part shows its sides, and the silhouette grows by about height*tan(elevation).
+    """
+    centred = np.asarray(outline_mm, float) - polygon_centroid(outline_mm)
+    board_xy = rotate_in_board(centred, theta_deg) + np.array([float(x_mm), float(y_mm)])
+    n = len(board_xy)
+    bottom = cv2.projectPoints(np.c_[board_xy, np.full(n, float(base_mm))],
+                               rvec, tvec, K, dist)[0].reshape(-1, 2)
+    top = cv2.projectPoints(np.c_[board_xy, np.full(n, float(base_mm) + float(height_mm))],
+                            rvec, tvec, K, dist)[0].reshape(-1, 2)
+    faces = [bottom, top] + [np.array([bottom[i], bottom[(i + 1) % n],
+                                       top[(i + 1) % n], top[i]]) for i in range(n)]
+    for face in faces:
+        cv2.fillPoly(frame, [np.round(face).astype(np.int32)], bgr)
+    return frame

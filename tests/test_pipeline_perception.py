@@ -11,7 +11,7 @@ import numpy as np
 from perception import part_catalog
 from perception.part_matcher import MatchResult
 from perception.pipeline import detect_and_validate
-from tests.synthetic import blank_scene, render_part_on_board
+from tests.synthetic import blank_scene, board_camera, render_part_on_board
 
 K = np.array([[1500.0, 0, 960.0], [0, 1490.0, 540.0], [0, 0, 1.0]])
 DIST = np.array([0.05, -0.02, 0.001, -0.001, 0.0])
@@ -30,11 +30,10 @@ class FakeBoardPose:
         self.visible_ids = [0, 1, 2, 3]
 
 
-def overhead_camera(height_mm=600.0, look_at=(125.0, 95.0), tilt=(0.02, -0.03)):
-    rvec = np.array([tilt[0], tilt[1], np.pi])          # rolled 180: upside down
-    R = cv2.Rodrigues(rvec)[0]
-    tvec = np.array([0.0, 0.0, height_mm]) - R @ np.array([look_at[0], look_at[1], 0.0])
-    return FakeBoardPose(rvec, tvec)
+def overhead_camera(distance_mm=600.0, look_at=(125.0, 95.0), elev_deg=35.0):
+    """The real rig: mounted upside down and looking at the board from an angle."""
+    return FakeBoardPose(*board_camera(elev_deg=elev_deg, distance_mm=distance_mm,
+                                       look_at=look_at))
 
 
 def scene(board_pose, placements=()):
