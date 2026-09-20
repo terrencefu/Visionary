@@ -80,15 +80,15 @@ Preserve the 1 mm asymmetry. **Do not restore the obsolete 493 x 305 mm fixture.
 ## Main demo: moving-base assembly
 
 ```powershell
-python main.py perceive --cad Fusion_output --part-id "Plate 1x10 Silver" --anchor --base-marker-id 5 --base-marker-size 30
+python main.py perceive --cad Fusion_output --part-id "2850 Medium Stone Grey Technic Engine Cylinder Head" --anchor --base-marker-id 5 --base-marker-size 30
 ```
 
 ### Initial anchor
 
-1. Put the sheet with marker 5 on the fixed board, **without the first plate**.
+1. Put the sheet with marker 5 on the fixed board, **without the engine block**.
    Keep marker 5 and at least three reliable fixed-board markers visible.
 2. Press **Space** to capture a baseline.
-3. Attach the first silver plate, studs up, without shifting the sheet. Remove
+3. Attach the engine block in its CAD upright orientation without shifting the sheet. Remove
    your hand. Press **V** once a change is detected.
 4. The program verifies STL shape and fits metric anchor X/Y/yaw. Inspect the
    green outline, then press **Enter** to accept the anchor.
@@ -101,35 +101,68 @@ selected using HSV colour masks of newly added pixels. `Plate 1x10 Silver` stays
 as the exported CAD name but maps to physical red in `PLACEMENT_PART_COLOURS`.
 Unchanged earlier red pieces cannot satisfy the next red step.
 
-Colour selects the expected part's pixels; only that expected CAD mesh is used
-for orientation and metric fitting. **XY, yaw, support height, and metric fit
-checks remain active.** Colour alone does not pass a placement or prove its shape.
-No assembly command change is required. V checks and Enter checks/advances as before.
-The pose still assumes the CAD support height, so colour masking will not fix a
-height/registration error by itself. HSV ranges are starting values for real-light
-verification, not calibrated colour measurements. Overlapping same-colour pieces
-can hide new pixels and still cause a rejection.
+For later blue/red additions, `perception/assembly_matcher.py` now tests the
+expected CAD placement and nearby XY/yaw alternatives. A perspective-correct
+camera depth buffer accounts for installed parts hiding the target. New colour
+pixels trigger the check; the comparison uses the full current colour mask in a
+fixed neighbourhood, including predicted installed surfaces of the same colour.
+It does not fit a full isolated STL to the novelty fragment.
 
-The existing `python -m perception.diagnose_placement ...` command automatically
-uses this path for blue/red components. Keep the engine/support assembly present
+**V** checks; **Enter** rechecks and advances only on **PLACEMENT OK (visible
+evidence)**. **ADJUST PLACEMENT** is issued only for a strong displaced hypothesis
+that clearly beats acceptable alternatives. **INSUFFICIENT EVIDENCE** blocks
+advancement without claiming a measured correction. Look at the separate
+**Assembly visibility** window: green is predicted visible target, red is observed
+colour, yellow is their overlap. Coordinate boxes remain in Placement comparison.
+
+The existing 3 mm / 8 degree tolerances and 0.76 agreement floor remain.
+`PLACEMENT_AMBIGUITY_MARGIN = 0.005` in `config.py` controls the required score
+advantage for all visible-assembly placement checks, with no part-specific override.
+The separate isolated-STL identity margin remains 0.08. Placement logs and saved
+reports include the active margin and measured score gap.
+This MVP setting accepts near-tied alternatives, so decisions near the position
+or yaw limit may be less stable. Test both a correct and one-stud-offset placement.
+Local search is bounded to +/-10 mm on each axis and +/-30 degrees;
+a boundary winner remains uncertain. At least 40 cropped pixels, 25% target
+visibility, and 15% support from new pixels are required. These conservative
+visibility gates are experimental, not measured accuracy guarantees. The current
+CAD support height and anchor registration are still assumed, and unknown hands
+or non-CAD occluders are not reconstructed. Initial engine identification and
+uncoloured/standalone STL diagnostics still use the original fitter.
+
+Failed checks save the visibility comparison, all searched hypotheses, exact
+assembly meshes, and valid-image mask for offline replay:
+
+```powershell
+python -m perception.placement_evidence data/placement_check_REPLACE_WITH_TIMESTAMP
+```
+
+The new checker passed synthetic correct, offset, rotated, half-hidden, and
+missing/hidden-target tests. The saved real failure from this session still has
+insufficient agreement (expected ~0.48, best local candidate ~0.63); no physical
+full-sequence success is claimed. Calibration and geometry were not changed.
+
+The standalone `python -m perception.diagnose_placement ...` command uses colour
+selection and the original isolated-part fitter, not assembly visibility. Keep the engine/support assembly present
 in the baseline, then add only the new brick. It saves `4_colour_change.png`, the
 selected region, pose fit, and camera/board data for inspection. Keep projection
 off during the independent diagnostic; the main MVP already blanks it for checks.
 
 ### Every subsequent part
 
-1. The projector goes blank for the **move phase**. Slide/rotate the whole base
-   if desired, keeping every installed component fixed relative to it.
-2. Lay it flat and remove your hands. Press **Space** to obtain a settled frame,
-   update CAD registration from marker 5, and capture a fresh pre-placement baseline.
-3. Only now add the requested part. Camera movement and flat base sliding/rotation
-   are compensated for blue/red checks; stop moving and remove hands before **V**.
-4. **V** checks shape, X/Y, and rotation. **Enter** checks again and advances only
-   on a pass. Failures print position and rotation corrections.
-5. Repeat through the four JSON steps; completion blanks projection and exits.
+1. After **Enter** confirms a placement (or the initial anchor), its clean,
+   projector-blank frame and corresponding pose/registration become the next
+   baseline. The next target is displayed automatically; no Space is needed.
+2. Slide/rotate the whole flat base if desired, keeping installed parts attached.
+   Blue/red checks compensate for camera/base motion. Add the requested part,
+   stop moving, and remove your hands.
+3. **V** checks placement. **Enter** checks again and advances only on a pass.
+   A failed check or V alone does not replace the baseline.
+4. Repeat through the four placements; completion blanks projection and exits.
 
-Even if you do not move between steps, press Space before adding the next part.
-**M** cancels the pending placement and returns to the move phase: remove any
+Space is only needed for the initial baseline or an explicit recovery.
+**M** cancels the pending placement and enters recovery; press **Space** to
+capture a fresh baseline when ready. Remove any
 unverified new part *before* re-baselining, or the new piece will be absorbed into
 the baseline. **B** resets the whole assembly; clear it before a new baseline.
 **Q/Esc** exits. Keys apply to an OpenCV window with keyboard focus.
@@ -137,7 +170,7 @@ Press a check key once: the preview shows Capturing/Checking while work runs.
 Repeated step keys are ignored during that work. Guidance geometry is cached
 between steps; tracking updates its transform without recomputing CAD surfaces.
 The initial engine fit also uses a fresh projector-blank capture. Its first outline
-confirms the engine anchor; after Enter and Space the outline guides the next part.
+confirms the engine anchor; after Enter the outline guides the next part.
 
 During blue/red placement, marker loss pauses projection/checking and reacquisition
 resumes the same baseline. The current fixed-board pose and marker-5 registration
@@ -160,10 +193,10 @@ in the full workflow; the standalone tracking test needs them only initially.
 
 The current Fusion plan is:
 
-1. `Plate 1x10 Silver:1` (anchor)
-2. `Plate 1x10 Silver:2`
-3. `2850 Medium Stone Grey Technic Engine Cylinder Head:2`
-4. `389423 Bright Blue Technic Brick 1 x 6 with Holes:1`
+1. `2850 Medium Stone Grey Technic Engine Cylinder Head:2` (anchor)
+2. `389423 Bright Blue Technic Brick 1 x 6 with Holes:1`
+3. `Plate 1x10 Silver:2`
+4. `Plate 1x10 Silver:1`
 
 Order, dependencies, and target transforms come from `Fusion_output/assembly.json`.
 `assembly/manual_guidance.py` tracks the current step and gates advancement;
@@ -171,9 +204,9 @@ workflow phases currently live in `perception/demo_change.py`. This is a small
 stateful controller, **not yet a generalized declarative state-machine engine**.
 
 Each later check verifies the **current addition**, not all installed components.
-It compares a blank-projector before/after image, verifies the expected STL
-silhouette, fits XY/yaw at the assumed CAD support height, and compares against
-the updated target. It does not independently measure height or confirm hidden
+It compares a blank-projector before/after image and, for coloured additions,
+evaluates visible CAD hypotheses at the assumed support height against the
+updated target. It does not independently measure height or confirm hidden
 connections. The code cannot enforce the promise not to add parts during the
 move phase. Stillness detection is not hand recognition: a stationary hand may
 pass that check. Shadows, glare, touching parts, and occlusion can cause uncertainty.
@@ -190,6 +223,27 @@ not extracted mating interfaces. Projector-ray occlusion is not yet checked.
 Raised full-sequence guidance needs continued physical validation.
 
 ## Independent tests / older modes
+
+Detection tests now show a separate **Detection coordinates (unrotated)** window.
+Yellow marks the observed image region; placement checks additionally draw green
+expected and red fitted STL boxes. The bottom panel lists top-left/bottom-right
+pixel coordinates, pixel dimensions, mask centroid, and available model-center
+board X/Y in mm, yaw, assumed Z, and correction. A mask centroid is not a measured
+physical part center. Pixel coordinates refer to the undistorted, unrotated image;
+the normal human preview can still rotate independently.
+
+For a standalone blue-brick check on the engine support:
+
+```powershell
+python -m perception.diagnose_placement --cad Fusion_output --part-id "389423 Bright Blue Technic Brick 1 x 6 with Holes" --base-z -19.2
+```
+
+Keep projection off. Space captures the supporting assembly before adding the
+brick; Space again checks it. The coordinate overlay is displayed and saved as
+`7_coordinate_boxes.png` in the printed diagnostic directory. It shows the fitted
+pose, not an expected assembly target, because this standalone tool has no anchor
+registration. The assembly's **Placement comparison** window shows both, and failed
+checks save the same labelled overlay in their `placement_check_*` directory.
 
 ```powershell
 # Moving marker + one identified anchor; CAMERA OVERLAY ONLY
@@ -223,6 +277,27 @@ calibration is modified. See [moving-base details](perception/MOVING_BASE.md) an
 [STL/anchor details](perception/STL_TEST.md).
 
 ## Data, geometry, and module map
+
+### Fusion colour export
+
+Run the updated `assembly/AssemblyGuide/AssemblyGuide.py` inside Fusion's Scripts
+and Add-Ins dialog to regenerate `assembly.json`. Each `components[]` and `parts[]`
+entry now includes `color`: RGB integers (0–255), hex, appearance name, status,
+source, representative area fraction, and an appearance palette. Component data
+describes native surfaces; part data uses occurrence-context surfaces or an
+explicit occurrence override. Prefer the part colour for an individual instance.
+
+The representative colour is taken from the largest known appearance surface
+group. Mixed appearances remain listed separately; textures, unknown colours,
+and ambiguous shader properties are flagged rather than inferred from LEGO names.
+These are CAD appearance colours, not calibrated camera HSV thresholds. Assign
+the actual physical colours in Fusion (e.g. red plates even if their names say
+Silver). Existing geometry/plan fields are unchanged, and the current perception
+colour mapping does not consume these new fields automatically yet.
+
+API references: [Occurrence appearance](https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/fusion_Occurrence.htm),
+[face appearance](https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/fusion_BRepFace_appearance.htm),
+and [ColorProperty](https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/core_ColorProperty.htm).
 
 `Fusion_output/assembly.json`, `Fusion_output/toCV_output.json`, and all three
 STLs under `Fusion_output/meshes/` are included. The manifest filename is

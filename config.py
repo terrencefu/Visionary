@@ -62,6 +62,9 @@ STL_MATCH_MIN_OVERLAP = 0.50
 # noise of each other, and this margin is what correctly reports UNCERTAIN
 # instead of coin-flipping between them.
 STL_MATCH_MARGIN = 0.08
+# Visible-assembly placement hypotheses only; independent of STL identity.
+# Minimum score advantage over a competing correct/displaced hypothesis.
+PLACEMENT_AMBIGUITY_MARGIN = 0.005  # MVP: allow near-tied hypotheses; confirm with physical offset tests.
 # Anchor fitting measures METRIC POSE quality, not identity: there is no
 # runner-up to compare against, and a weak fit feeds bad mm straight into the
 # corrections and the projected outline. It does not follow the identity floor.

@@ -70,6 +70,7 @@ class ManualAssembly:
 
     def validate_frames(self, before, after, pose, K, *, exclude_quads=None, search_mask=None, before_pose=None, before_transform=None):
         """Later coloured parts use a colour-selected change mask, then metric checks."""
+        self.last_visible_comparison = None
         from perception.colour_change import part_colour, detect_colour_change
         from perception.change_detector import detect_change
         self.checked_index = None
@@ -92,10 +93,36 @@ class ManualAssembly:
             region = detect_change(before, after, exclude_quads=exclude_quads, search_mask=search_mask)
             if region is None:
                 return False, 'No accepted new part change; cannot advance', np.zeros_like(after)
-        result = self.validate(region, pose, K, colour_verified=colour)
+        visible_comparison = None
+        if colour and self.index > 0:
+            from perception.assembly_matcher import check_placement
+            from perception.change_detector import _blank_quads
+            valid = np.full(after.shape[:2],255,np.uint8) if search_mask is None else search_mask.copy()
+            _blank_quads(valid,exclude_quads)
+            passed,message,debug,self.last_check,visible_comparison = check_placement(
+                self,after,region,pose,K,colour,valid)
+            self.checked_index = self.index if passed else None
+            result = passed,message,debug
+        else:
+            result = self.validate(region, pose, K, colour_verified=colour)
+        from perception.debug_overlay import placement_overlay
+        check = self.last_check
+        fitted = (dict(xy_mm=check['measured_xy'],yaw_deg=check['measured_yaw'])
+                  if 'measured_xy' in check else None)
+        debug = placement_overlay(after,region,pose=pose,K=K,model=self.models[check['component']],
+                                  expected_xyz=check['expected_xyz'],expected_yaw=check['expected_yaw'],
+                                  fitted=fitted,base_z=check['expected_xyz'][2])
+        result = result[0],result[1],debug
+        if visible_comparison is not None:
+            # Keep the pixel-coordinate canvas intact; put visibility evidence in
+            # a separate saved image, not in a resized/rotated geometric frame.
+            self.last_visible_comparison = visible_comparison
         if not result[0]:
             from perception.placement_evidence import save_check
-            save_check(self,before,after,region,pose,K,result[1])
+            folder = save_check(self,before,after,region,pose,K,result[1],
+                                valid_mask=valid if visible_comparison is not None else None)
+            if visible_comparison is not None:
+                cv2.imwrite(str(folder/'visible_expected_green_observed_red.png'),visible_comparison)
         return result
 
     def validate(self, region, pose, K, *, colour_verified=None):

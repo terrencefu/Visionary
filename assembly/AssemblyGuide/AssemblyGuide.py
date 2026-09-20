@@ -34,6 +34,104 @@ ASSEMBLY_ANCHOR_OVERRIDE = None
 COMPONENT_REFERENCE_POINT_OVERRIDES = {}
 
 
+def appearance_color(appearance):
+    """Read appearance colour without guessing from localized display names.
+
+    Preserve all colour properties; prefer known base-colour IDs. Textures and
+    ambiguous shaders are explicitly unavailable as a single solid RGB value.
+    """
+    result = {"appearance_name": None, "appearance_id": None,
+              "rgb": None, "hex": None, "property_id": None,
+              "status": "unavailable", "color_properties": []}
+    if appearance is None:
+        return result
+    result.update(appearance_name=appearance.name, appearance_id=appearance.id)
+    properties = appearance.appearanceProperties
+    for i in range(properties.count):
+        prop = adsk.core.ColorProperty.cast(properties.item(i))
+        if prop is None:
+            continue
+        textured = bool(prop.hasConnectedTexture)
+        multiple = bool(prop.hasMultipleValues)
+        value = None if textured or multiple else prop.value
+        rgb = [int(value.red), int(value.green), int(value.blue)] if value is not None else None
+        result['color_properties'].append(dict(id=prop.id, name=prop.name,
+            rgb=rgb, textured=textured, multiple_values=multiple))
+    candidates = result['color_properties']
+    preferred = ('generic_diffuse', 'opaque_albedo', 'metal_f0', 'transparent_color')
+    chosen = next((p for key in preferred for p in candidates if p['id']==key), None)
+    if chosen is None and len(candidates)==1:
+        chosen = candidates[0]
+    if chosen is None:
+        result['status'] = 'ambiguous_properties' if candidates else 'no_color_property'
+        return result
+    result['property_id'] = chosen['id']
+    if chosen['textured'] or chosen['multiple_values'] or chosen['rgb'] is None:
+        result['status'] = 'textured' if chosen['textured'] else 'no_single_color'
+        return result
+    result.update(rgb=chosen['rgb'], hex='#' + ''.join(f'{v:02X}' for v in chosen['rgb']), status='solid')
+    return result
+
+
+def export_color(owner, occurrence=False):
+    """Area-weighted appearance palette, using occurrence-context body/face proxies.
+
+    A representative colour is the largest known surface group, never an average
+    of unrelated colours. Unknown/textured surface area remains in the denominator.
+    All area fractions refer to CAD surfaces, not camera-visible pixels.
+    """
+    palette = {}
+    cache = {}
+    warnings = []
+    override = owner.appearance if occurrence else None
+    def add(appearance, area):
+        key = appearance.id if appearance is not None else None
+        if key not in cache:
+            try:
+                cache[key] = appearance_color(appearance)
+            except (RuntimeError, AttributeError, TypeError, ValueError) as exc:
+                cache[key] = dict(appearance_name=None,appearance_id=key,rgb=None,
+                                  hex=None,property_id=None,status='read_error',color_properties=[])
+                warnings.append(str(exc))
+        if key not in palette:
+            palette[key] = dict(cache[key],surface_area_cm2=0.0)
+        palette[key]['surface_area_cm2'] += max(0.0,float(area))
+    try:
+        bodies = owner.bRepBodies
+        for i in range(bodies.count):
+            body = bodies.item(i)
+            if override is not None:
+                add(override,body.area)
+                continue
+            faces = body.faces
+            if faces.count:
+                for j in range(faces.count):
+                    face = faces.item(j)
+                    add(face.appearance,face.area)
+            else:
+                add(body.appearance,body.area)
+        if not palette and override is not None:
+            add(override,0.)
+    except (RuntimeError, AttributeError, TypeError, ValueError) as exc:
+        warnings.append(str(exc))
+    entries = sorted(palette.values(),key=lambda item:item['surface_area_cm2'],reverse=True)
+    total = sum(p['surface_area_cm2'] for p in entries)
+    for entry in entries:
+        entry['area_fraction'] = entry['surface_area_cm2']/total if total else None
+    known = [p for p in entries if p['rgb'] is not None]
+    representative = known[0] if known else None
+    status = ('solid' if len(entries)==1 and representative else 'mixed') if known else 'unavailable'
+    if warnings:
+        status = 'partial' if known else 'unavailable'
+    return dict(status=status, rgb=representative['rgb'] if representative else None,
+                hex=representative['hex'] if representative else None,
+                appearance_name=representative['appearance_name'] if representative else None,
+                representative_area_fraction=representative['area_fraction'] if representative else None,
+                source='occurrence_override' if override is not None else ('occurrence_faces' if occurrence else 'component_faces'),
+                rgb_range=[0,255], selection='largest_known_appearance_surface_area',
+                palette=entries, warnings=warnings)
+
+
 # ==========================================================
 # Utility functions
 # ==========================================================
@@ -2984,6 +3082,8 @@ def run(context):
                     "id":
                         component_id,
 
+                    "color": export_color(component),
+
                     "fusion_component_name":
                         component_name,
 
@@ -3058,6 +3158,8 @@ def run(context):
             part = {
                 "id":
                     occurrence.name,
+
+                "color": export_color(occurrence, occurrence=True),
 
                 "component":
                     component_id,

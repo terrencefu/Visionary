@@ -1,7 +1,7 @@
 """Dump everything one placement check saw, so a low score can be explained.
 
     python -m perception.diagnose_placement --cad Fusion_output \
-        --part-id "389423 Bright Blue Technic Brick 1 x 6 with Holes" --base-z 19.2
+        --part-id "389423 Bright Blue Technic Brick 1 x 6 with Holes" --base-z -19.2
 
 Space captures the baseline, then place the part and press Space again. Every
 intermediate image is written to data/diagnose_<timestamp>/ with the scores, so
@@ -25,6 +25,7 @@ from perception.colour_change import part_colour, detect_colour_change, expected
 from perception.anchor import estimate_anchor
 from perception.demo_change import workspace_polygon
 from perception.aruco import board_drift_px
+from perception.debug_overlay import placement_overlay
 
 
 def _stats(name, mask):
@@ -116,6 +117,7 @@ def run(cad, part_id, base_z=0.0, camera_index=None):
             if region is None:
                 report['region'] = None
                 print('No change region found. See', out)
+                overlay = placement_overlay(undistorted,None)
             else:
                 cv2.imwrite(str(out / '5_region_mask.png'), region.mask)
                 report['region'] = _stats('region_mask', region.mask)
@@ -129,6 +131,7 @@ def run(cad, part_id, base_z=0.0, camera_index=None):
                 else:
                     status, scores, debug = verify(models, part_id, region, pose, K, base_z=base_z)
                     seed = scores[0][2]
+                fitted = None
                 try:
                     fitted = estimate_anchor(models[part_id], region, pose, K, seed, base_z=base_z)
                     report['fitted_pose'] = dict(xy_mm=fitted['xy_mm'].tolist(),
@@ -137,6 +140,8 @@ def run(cad, part_id, base_z=0.0, camera_index=None):
                 except ValueError as exc:
                     report['pose_error'] = str(exc)
                     print('Pose uncertain:', exc)
+                overlay = placement_overlay(undistorted,region,pose=pose,K=K,
+                                            model=models[part_id],fitted=fitted,base_z=base_z)
                 cv2.imwrite(str(out / '6_overlap.png'), debug)
                 report['status'] = status
                 report['scores'] = [{'part': n, 'overlap': round(float(s), 4),
@@ -148,6 +153,9 @@ def run(cad, part_id, base_z=0.0, camera_index=None):
                 print('  kept %.0f%% of the thresholded change; %d fragment(s)'
                       % (100*report['region']['kept_fraction_of_threshold'],
                          report['region']['fragments']))
+            cv2.imwrite(str(out / '7_coordinate_boxes.png'),overlay)
+            cv2.namedWindow('Detection coordinates (unrotated)',cv2.WINDOW_NORMAL)
+            cv2.imshow('Detection coordinates (unrotated)',overlay)
             (out / 'report.json').write_text(json.dumps(report, indent=2))
             print('Wrote', out)
             baseline = None

@@ -5,6 +5,7 @@ import config
 import time
 from contextlib import ExitStack
 from perception.responsive_ui import run_check, pump_events, blank_projector
+from perception.debug_overlay import placement_overlay
 
 from calibration.common import load_camera
 from hardware.camera import Camera, show_preview
@@ -97,7 +98,8 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
             if moving is None:
                 print('Keep the anchor fixed. B blanks and resets. CAD height is assumed; no anchor recovery.')
             if moving is not None:
-                print('MOVING BASE: Space before each addition. Blue/red checks adapt to camera/base motion; settle before V.')
+                print('MOVING BASE: Enter confirms and reuses its clean frame for the next part. No Space between steps.')
+                print('Blue/red checks adapt to camera/base motion; settle before V.')
                 print('M cancels a pending placement: remove any unverified new part BEFORE M/recapturing baseline.')
         camera = stack.enter_context(Camera())
         while True:
@@ -193,7 +195,11 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                                     exclude_quads=marker_quads(measured_pose,K,dist)+(moving.marker_quad() if moving else []),search_mask=mask,
                                     before_pose=step_pose,before_transform=step_transform)
                                 print(message, flush=True)
+                                cv2.namedWindow('Placement comparison',cv2.WINDOW_NORMAL)
                                 cv2.imshow('Placement comparison',debug)
+                                if getattr(assembly,'last_visible_comparison',None) is not None:
+                                    cv2.namedWindow('Assembly visibility: green expected / red observed',cv2.WINDOW_NORMAL)
+                                    cv2.imshow('Assembly visibility: green expected / red observed',assembly.last_visible_comparison)
                             if key in (10,13) and passed:
                                 step_before,step_pose = measured_frame.copy(),measured_pose
                                 step_transform = assembly.transform.copy()
@@ -202,9 +208,9 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                                 if assembly.complete:
                                     break
                                 if moving is not None:
-                                    moving.begin_move()
-                                    preparing = True
-                                    print('Between steps: reposition base if wanted, then Space BEFORE adding next part.')
+                                    moving.arm()
+                                    preparing = False
+                                print('NEXT PART READY: baseline saved from Enter. Add the requested part; V checks, Enter checks/advances.')
                         elif assembly.index < 2:
                             height_mode = 'max' if key == ord('1') else 'body'
                         scene = run_check(view,"Preparing guidance",assembly.scene,height_mode)
@@ -249,6 +255,9 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
             if status != last_status:
                 print(status)
                 last_status = status
+            if baseline is not None:
+                cv2.namedWindow('Detection coordinates (unrotated)',cv2.WINDOW_NORMAL)
+                cv2.imshow('Detection coordinates (unrotated)',placement_overlay(frame,region))
             show_preview(view, status)
             key = cv2.waitKey(1) & 0xFF
             if key in (27, ord("q")):
