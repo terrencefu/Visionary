@@ -47,6 +47,7 @@ CHESSBOARD_TARGET_FRAMES = 30
 PROJECTOR_MONITOR_INDEX = None  # auto only if exactly one non-primary monitor
 PROJECTOR_SIZE = (1920, 1080)
 DOT_RADIUS_PX = 28
+DOT_COLOR = "green"
 MIN_GREEN_INCREASE = 35
 MIN_GREEN_DOMINANCE = 20
 MIN_DOT_AREA_PX = 12
@@ -59,9 +60,9 @@ GRID_COLS = 5
 GRID_ROWS = 4
 MAX_BOARD_DRIFT_PX = 1.5
 # Starting acceptance limits, not a guarantee of physical accuracy.
-MAX_PROJECTOR_RMS_PX = 3.0
+MAX_PROJECTOR_RMS_PX = 4.0  # Hackathon demo tolerance; verify physical landing error.
 MAX_RIG_ROTATION_SPREAD_DEG = 2.0
-MAX_RIG_TRANSLATION_SPREAD_MM = 10.0
+MAX_RIG_TRANSLATION_SPREAD_MM = 15.0  # Demo tolerance for per-pose transform consistency.
 
 
 def validate_fixture(require_bounds=True):

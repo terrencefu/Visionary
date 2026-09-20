@@ -54,7 +54,10 @@ class Projector:
         if not r <= u < self.width-r or not r <= v < self.height-r:
             raise ValueError(f"Dot ({u},{v}) is outside projector bounds.")
         frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-        cv2.circle(frame, (u, v), r, (0, 255, 0), -1)
+        colors = {'green': (0,255,0), 'magenta': (255,0,255)}
+        if config.DOT_COLOR not in colors:
+            raise ValueError('Dot color must be green or magenta.')
+        cv2.circle(frame, (u, v), r, colors[config.DOT_COLOR], -1)
         cv2.imshow(self.name, frame)
         cv2.waitKey(1)
         return u, v  # exact rendered integer pixel center

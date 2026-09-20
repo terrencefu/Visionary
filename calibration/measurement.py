@@ -24,7 +24,7 @@ def measure_dot(camera, projector, tracker, u, v, reference=None):
             raise ValueError("Board/rig moved or markers became unreliable during dot capture.")
         dot, _ = detect_green_dot(background, raw)
         if dot is None:
-            raise ValueError("No unambiguous green dot.")
+            raise ValueError(f"No unambiguous {config.DOT_COLOR} dot.")
         point = camera_pixel_to_board(dot.u, dot.v, before.rvec, before.tvec, tracker.K, tracker.dist)
         if not inside_board(point):
             raise ValueError("Dot center is outside the configured flat board region.")
@@ -42,7 +42,7 @@ def measure_dot(camera, projector, tracker, u, v, reference=None):
             if np.any(cv2.bitwise_and(region, blob)):
                 raise ValueError("Dot overlaps marker ink; choose another grid position.")
         cv2.circle(raw, (round(dot.u), round(dot.v)), 12, (0, 0, 255), 2)
-        return dict(projector_uv=rendered_uv, camera_uv=[dot.u, dot.v],
+        return dict(projector_uv=rendered_uv, camera_uv=[dot.u, dot.v], dot_color=config.DOT_COLOR,
                     board_xyz=point.tolist(), rvec=before.rvec.ravel().tolist(),
                     tvec=before.tvec.ravel().tolist(), aruco_rms=before.reprojection_error,
                     visible_ids=before.visible_ids), raw, before

@@ -1,5 +1,60 @@
 # Stationary planar guidance
 
+## Calibration dot colour
+
+Green remains the default. To try magenta in brighter surroundings:
+
+```powershell
+python main.py planar calibrate --stationary-ready --dot-color magenta --overwrite
+python main.py planar verify-current --stationary-ready --dot-color magenta
+```
+
+Verification inherits the saved `dot_color` when the option is omitted; legacy
+calibrations default to green. Projection and detection use the same colour.
+OpenCV HSV hue ranges are 35–90 for green and 130–175 for magenta on its 0–179
+scale, with saturation/value >=50. Magenta is around hue 150, not the red wrap
+at 0/179. Both colours retain channel-increase/dominance, contour area, clipping,
+shape, ambiguity, pose and motion checks. Magenta requires both red and blue
+channels to brighten and dominate green.
+
+New planar fits remain candidates until all existing held-out landing checks
+pass. Failed candidates cannot replace the saved homography. Successful replacement
+backs up the previous calibration under `data/planar_previous_*.json`; candidate
+diagnostics are stored separately. Current-position verification remains read-only.
+
+## Read-only verification at the current rig position
+
+```powershell
+python main.py planar verify-current --stationary-ready
+```
+
+This deliberately tests saved H even when its saved pose reference has a stable
+offset. It is NOT permission to resume placement. Press Space, then keep the head
+still during nine settled black frames and five held-out dot tests. The temporary
+medoid pose guards only motion during the test. Each landing is reconstructed
+using the existing per-dot pose and detector. Movement/unreliable measurement
+stops the sequence and blanks output. Calibration files are read-only; a separate
+`data/planar_verify_current_*.json` records errors, current pose window, available
+camera properties, original calibration hash and the unchanged-file check.
+No saved reference, H, status or validation history is overwritten.
+
+Calibration and placement use identical configured RAW resolution, camera backend,
+intrinsics, marker geometry and iterative PnP. Their capture timing differs:
+calibration saves the single Space-key pose; dot reconstruction uses settled
+black-background frames. Placement tracks successive live frames. The camera
+wrapper does not lock exposure, autofocus or gain, nor store their old values,
+so historical optical settings cannot be proven identical.
+
+If all five landing errors pass the existing planar limit, visually verify against
+physical board marks as an independent check. Keep the rig still. A separate,
+explicit reference-update operation can then preserve the original calibration
+as a backup and record the verified stable reference in a versioned copy or
+sidecar bound to the original calibration hash, with the verification report.
+Recheck held-out dots and deliberate-motion stopping before using it. This command
+does NOT perform that update or make placement load its temporary reference.
+If validation fails or is incomplete, do not rebase away the offset: inspect the
+fixture and recalibrate the planar mapping, preserving the old file first.
+
 ## Read-only board alignment overlay
 
 ```powershell
