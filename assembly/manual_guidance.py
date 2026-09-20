@@ -14,18 +14,26 @@ class ManualAssembly:
         self.heights = plate_heights
         self.index = 0
         self.checked_index = None
+        self._scene_cache = {}
         self.models = load_models(folder)
         self.names = []
         self.operations = []
         seen = set()
+        # A CAD step may hold several operations: the planner groups placements
+        # whose dependencies allow them in any order. Perception can only judge
+        # ONE new part per baseline, so flatten to a linear placement sequence.
+        # Within a step the JSON order is kept; dependencies are checked against
+        # everything already placed, which is stricter than per-step checking.
         for step in data['assembly_plan']['steps']:
-            if len(step['operations']) != 1:
-                raise ValueError('Manual MVP requires one operation per CAD step')
-            op = step['operations'][0]
-            if op['type'] != 'PLACE' or not set(op.get('dependencies',[])) <= seen:
-                raise ValueError('Unsupported operation or unsatisfied CAD dependency order')
-            self.operations.append(op)
-            seen.add(op['id'])
+            for op in step['operations']:
+                if op['type'] != 'PLACE':
+                    raise ValueError(f'Unsupported operation type {op["type"]!r}; '
+                                     'the manual MVP only places parts')
+                if not set(op.get('dependencies',[])) <= seen:
+                    raise ValueError(f'Operation {op["id"]!r} depends on a part that is '
+                                     'not placed earlier in the plan')
+                self.operations.append(op)
+                seen.add(op['id'])
         manifest = json.loads((Path(folder)/'toCV_output.json').read_text())
         entries = {c['id']:c for c in manifest['components']}
         definitions = {c['id']:c for c in data['components']}
@@ -60,7 +68,37 @@ class ManualAssembly:
             self.index += 1
             self.checked_index = None
 
-    def validate(self, region, pose, K):
+    def validate_frames(self, before, after, pose, K, *, exclude_quads=None, search_mask=None, before_pose=None, before_transform=None):
+        """Later coloured parts use a colour-selected change mask, then metric checks."""
+        from perception.colour_change import part_colour, detect_colour_change
+        from perception.change_detector import detect_change
+        self.checked_index = None
+        colour = part_colour(self.names[self.index]) if self.index > 0 else None
+        if colour:
+            previous_mask = None
+            if before_pose is not None:
+                from perception.motion_compensation import aligned_colour_history
+                previous_mask, visible = aligned_colour_history(
+                    before, colour, before_pose, pose, K,
+                    self.transform if before_transform is None else before_transform,
+                    self.transform, self.meshes[:self.index+1])
+                search_mask = visible if search_mask is None else search_mask & visible
+            region, mask = detect_colour_change(before, after, colour,
+                exclude_quads=exclude_quads, search_mask=search_mask, previous_mask=previous_mask)
+            if region is None:
+                debug = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+                return False, f'Expected a NEW {colour} part; no accepted colour change. Cannot advance.', debug
+        else:
+            region = detect_change(before, after, exclude_quads=exclude_quads, search_mask=search_mask)
+            if region is None:
+                return False, 'No accepted new part change; cannot advance', np.zeros_like(after)
+        result = self.validate(region, pose, K, colour_verified=colour)
+        if not result[0]:
+            from perception.placement_evidence import save_check
+            save_check(self,before,after,region,pose,K,result[1])
+        return result
+
+    def validate(self, region, pose, K, *, colour_verified=None):
         """Check the current addition at its expected CAD support height."""
         self.checked_index = None
         name = self.names[self.index]
@@ -69,10 +107,27 @@ class ManualAssembly:
         root_center = np.array([(lo[0]+hi[0])/2,(lo[1]+hi[1])/2,lo[2]])
         expected = self.transform[:3,:3] @ root_center + self.transform[:3,3]
         yaw = float(np.degrees(np.arctan2(self.transform[1,0],self.transform[0,0])) % 360)
-        status,scores,debug = verify(self.models,name,region,pose,K,base_z=expected[2])
-        if status != 'CORRECT SHAPE':
-            return False, f'{status}: {scores}', debug
-        measured = estimate_anchor(self.models[name],region,pose,K,scores[0][2],base_z=expected[2])
+        self.last_check = dict(component=name,part=self.operations[self.index]['part'],
+                               step_index=self.index,expected_xyz=expected.tolist(),expected_yaw=yaw,
+                               cad_to_board=self.transform.tolist(),root_center=root_center.tolist(),
+                               colour_verified=colour_verified)
+        if colour_verified:
+            from perception.colour_change import expected_pose_seed
+            initial_yaw,scores,debug = expected_pose_seed(self.models[name],name,region,pose,K,expected[2])
+        else:
+            status,scores,debug = verify(self.models,name,region,pose,K,base_z=expected[2])
+            self.last_check.update(identity_status=status,scores=[(n,float(s),float(a)) for n,s,a in scores])
+            if status != 'CORRECT SHAPE':
+                return False, f'{status}: {scores}', debug
+            initial_yaw = scores[0][2]
+        self.last_check.update(scores=[(n,float(s),float(a)) for n,s,a in scores],initial_yaw=float(initial_yaw))
+        try:
+            measured = estimate_anchor(self.models[name],region,pose,K,initial_yaw,base_z=expected[2])
+        except ValueError as exc:
+            self.last_check['fit_rejection'] = str(exc)
+            return False,f'PLACEMENT UNCERTAIN: {exc}',debug
+        self.last_check.update(measured_xy=measured['xy_mm'].tolist(),measured_yaw=measured['yaw_deg'],
+                               fitted_overlap=measured['overlap'])
         correction = expected[:2]-measured['xy_mm']
         distance = float(np.linalg.norm(correction))
         # User's LEGO MVP explicitly treats 180-degree symmetry as equivalent.
@@ -84,14 +139,41 @@ class ManualAssembly:
                    f'expected XY={np.round(expected[:2],2)}, observed XY={np.round(measured["xy_mm"],2)} mm; '
                    f'correction X={correction[0]:+.2f}, Y={correction[1]:+.2f} mm, yaw={angle:+.1f} deg; '
                    f'position error={distance:.2f} mm; CAD base Z={expected[2]:.2f} mm; '
-                   f'overlap={measured["overlap"]:.3f}')
+                   f'overlap={measured["overlap"]:.3f}'
+                   + (f'; detected colour={colour_verified}' if colour_verified else ''))
         return passed,message,debug
 
     def scene(self, height_mode='body'):
         if self.complete:
+            return [], []
+        key = (self.index, height_mode)
+        if key not in self._scene_cache:
+            scene = self._build_scene(height_mode)
+            inverse = np.linalg.inv(self.transform)
+            def local(point):
+                return inverse[:3,:3] @ np.asarray(point) + inverse[:3,3]
+            self._scene_cache[key] = (
+                [(local(a),local(b),colour) for a,b,colour in scene[0]],
+                [(local(p),text,colour) for p,text,colour in scene[1]])
+        def board(point):
+            result = self.transform[:3,:3] @ point + self.transform[:3,3]
+            if cv2.pointPolygonTest(np.asarray(config.DETECTION_WORKSPACE_MM,np.float32),
+                                   tuple(map(float,result[:2])),False)<0:
+                raise ValueError('Assembly footprint extends beyond cardboard; reposition base')
+            return result
+        edges,labels = self._scene_cache[key]
+        return ([(board(a),board(b),colour) for a,b,colour in edges],
+                [(board(p),text,colour) for p,text,colour in labels])
+
+    def _build_scene(self, height_mode='body'):
+        if self.complete:
             return [],[]
-        if self.index < 2:
-            return placement_scene(self.data,self.transform,self.index,self.heights[height_mode])
+        if self.index == 0:
+            # Nothing is installed yet, so there is no surface to sample onto.
+            # The height toggle belongs to the anchor, whose mesh it was measured
+            # from; applying it to any later part would be a different part's mm.
+            return placement_scene(self.data,self.transform,self.operations[0]['part'],
+                                   self.heights[height_mode])
         target = self.meshes[self.index]
         low, high = target.min(axis=(0,1)), target.max(axis=(0,1))
         xy = np.array([[low[0],low[1]],[high[0],low[1]],

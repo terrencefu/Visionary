@@ -4,10 +4,16 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from perception.anchor import estimate_anchor, register_cad, placement_scene, plate_surface_heights
+from perception.anchor import (estimate_anchor, register_cad, placement_scene,
+                               plate_surface_heights, anchor_component_name)
 from perception.change_detector import detect_change
 from perception.stl_matcher import silhouette, load_models, read_stl, model_to_board
 from tests.test_stl_matcher import box
+
+
+def parts_in_plan(data):
+    """Every placed part id, in placement order, across all plan steps."""
+    return [op['part'] for step in data['assembly_plan']['steps'] for op in step['operations']]
 
 
 class AnchorTests(unittest.TestCase):
@@ -29,7 +35,7 @@ class AnchorTests(unittest.TestCase):
         folder = Path(__file__).resolve().parents[1] / 'Fusion_output'
         if not folder.exists():
             self.skipTest('Local Fusion export missing')
-        name = 'Plate 1x10 Silver'
+        name = anchor_component_name(folder)
         mesh = load_models(folder)[name]
         pose = SimpleNamespace(rvec=np.zeros(3), tvec=np.array([0.,0.,500.]))
         estimate = {'xy_mm': np.array([150.,100.]), 'yaw_deg': 25}
@@ -42,17 +48,19 @@ class AnchorTests(unittest.TestCase):
         expected = model_to_board(mesh,25,[150,100],pose)
         np.testing.assert_allclose(board,expected,atol=1e-8)
         self.assertAlmostEqual(np.linalg.det(transform[:3,:3]),1.)
-        for index in (0,1):
-            scene = placement_scene(data,transform,index)
+        for part_id in parts_in_plan(data):
+            scene = placement_scene(data,transform,part_id)
             self.assertEqual(len(scene[0]),4)
             self.assertLess(scene[0][0][0][2],0.)
-        heights = plate_surface_heights(mesh)
+        # Height inference is asserted on the plate specifically: its 3.33 mm body
+        # deck is the physically measured figure, independent of which part anchors.
+        heights = plate_surface_heights(load_models(folder)['Plate 1x10 Silver'])
         self.assertAlmostEqual(heights['body'],3.33,places=2)
         self.assertAlmostEqual(heights['max'],5.18,places=2)
         original = transform.copy()
-        for index in (0,1):
-            upper = placement_scene(data,transform,index,height_mm=heights['max'])
-            lower = placement_scene(data,transform,index,height_mm=heights['body'])
+        for part_id in [p for p in parts_in_plan(data) if p.startswith('Plate 1x10 Silver')]:
+            upper = placement_scene(data,transform,part_id,height_mm=heights['max'])
+            lower = placement_scene(data,transform,part_id,height_mm=heights['body'])
             for a,b in zip(upper[0],lower[0]):
                 np.testing.assert_allclose(a[0][:2],b[0][:2])
                 self.assertAlmostEqual(b[0][2]-a[0][2],1.85,places=2)

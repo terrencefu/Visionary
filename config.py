@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-CAMERA_INDEX = 0  # DirectShow: webcam AC310 = 0; Integrated Camera = 1 on this setup.
+CAMERA_INDEX = 0  # DirectShow: webcam AC310 = 1; Intel LNL integrated = 0 on THIS computer.
 CAMERA_SIZE = (1920, 1080)
 PREVIEW_ROTATE_180 = True
 CAMERA_CALIBRATION = ROOT / "camera_calibration_1080p.npz"
@@ -43,6 +43,33 @@ PERCEPTION_STILL_FRAMES = 6
 # limits for the demo, not a statement of measured accuracy.
 PLACEMENT_TOLERANCE_MM = 3.0
 PLACEMENT_TOLERANCE_DEG = 8.0
+# Silhouette overlap gates. These are rig-dependent acceptance limits, NOT
+# probabilities and NOT validated accuracy. A shallow camera elevation shrinks
+# a thin part to few pixels, where the 5x5 change-mask morphology distorts it
+# and depresses overlap systematically; raising the camera raises these scores.
+#
+# IDENTITY is decided by STL_MATCH_MARGIN, not by the floor below. The caller
+# always knows which part is due, so verification tests one hypothesis: a low
+# overlap means poor segmentation, while only the gap to the runner-up says
+# anything about WHICH part is present. The floor is therefore a junk filter --
+# a hand, a shadow, an empty region -- where every candidate scores badly and
+# the winner is meaningless. Lowered 0.80 -> 0.775 -> 0.76 -> 0.50 on
+# 2026-09-20 after correct parts repeatedly scored 0.65-0.79 on a ~19 deg mount
+# while winning by 0.2-0.5. Raise it again once the camera is higher.
+STL_MATCH_MIN_OVERLAP = 0.50
+# The real identity test: how far the winner must beat the runner-up. Keep this
+# strict. Two parts sharing a mesh (the identical silver plates) score within
+# noise of each other, and this margin is what correctly reports UNCERTAIN
+# instead of coin-flipping between them.
+STL_MATCH_MARGIN = 0.08
+# Anchor fitting measures METRIC POSE quality, not identity: there is no
+# runner-up to compare against, and a weak fit feeds bad mm straight into the
+# corrections and the projected outline. It does not follow the identity floor.
+ANCHOR_MIN_OVERLAP = 0.76
+# Max ID-5 corner movement, in pixels, before an armed baseline is invalidated.
+# Raised from 3 to 7 px: 3 px at 1080p tripped on ordinary table vibration.
+# This trades tolerance of a nudged base against detecting real base movement.
+MOVING_BASE_MAX_DRIFT_PX = 7.0
 
 CHESSBOARD_INNER_CORNERS = (9, 6)
 CHESSBOARD_SQUARE_MM = 25.0  # MEASURE your print before calibration
@@ -87,3 +114,14 @@ def validate_fixture(require_bounds=True):
     x0, y0, x1, y1 = BOARD_BOUNDS_MM
     if not np.isfinite(BOARD_BOUNDS_MM).all() or x1 <= x0 or y1 <= y0:
         raise ValueError("Invalid BOARD_BOUNDS_MM.")
+
+# Physical demo colours; CAD component labels are retained as exported.
+PLACEMENT_PART_COLOURS = {
+    "389423 Bright Blue Technic Brick 1 x 6 with Holes": "blue",
+    "Plate 1x10 Silver": "red",
+}
+# OpenCV HSV: hue 0..179. Tune only against actual captured masks.
+PLACEMENT_COLOUR_HSV = {
+    "blue": (((95, 90, 45), (135, 255, 255)),),
+    "red": (((0, 100, 45), (10, 255, 255)), ((170, 100, 45), (179, 255, 255))),
+}

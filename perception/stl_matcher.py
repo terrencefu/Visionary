@@ -11,6 +11,7 @@ import struct
 import cv2
 import numpy as np
 
+import config
 from perception.geometry import board_point_from_undistorted_pixel, camera_height_above_board
 
 
@@ -105,7 +106,9 @@ def centered_iou(observed, rendered):
     return np.count_nonzero(observed & aligned) / max(union, 1), aligned
 
 
-def verify(models, expected, region, pose, K, min_score=0.80, margin=0.08, base_z=0.0):
+def verify(models, expected, region, pose, K, min_score=None, margin=None, base_z=0.0):
+    min_score = config.STL_MATCH_MIN_OVERLAP if min_score is None else min_score
+    margin = config.STL_MATCH_MARGIN if margin is None else margin
     height = camera_height_above_board(pose.rvec, pose.tvec)
     print(f'STL board convention: camera Z={height:.1f} mm; '
           f'CAD up maps to board {"+Z" if height > 0 else "-Z"} (proper rotation).')

@@ -22,6 +22,10 @@ MIN_CHANGE_AREA_PX = 400     # smaller than any real part at working distance
 MAX_CHANGE_FRACTION = 0.25   # larger than this is a hand, not a part
 STILLNESS_FRACTION = 0.002   # changed-pixel fraction still considered motionless
 MARKER_PAD_PX = 12
+# Fragments within this many pixels of each other belong to one placement.
+# Large enough to bridge a same-colour overlap that produces no detected change,
+# small enough to leave a genuinely separate object as its own region.
+MERGE_GAP_PX = 14
 
 
 @dataclass
@@ -62,6 +66,7 @@ def _blank_quads(mask, quads, pad=MARKER_PAD_PX):
 
 def detect_change(before, after, exclude_quads=None, threshold=DIFF_THRESHOLD,
                   min_area_px=MIN_CHANGE_AREA_PX, max_change_fraction=MAX_CHANGE_FRACTION,
+                  merge_gap_px=None,
                   search_mask=None):
     """Largest plausible newly-changed region, or None.
 
@@ -69,6 +74,12 @@ def detect_change(before, after, exclude_quads=None, threshold=DIFF_THRESHOLD,
     frames; anything inside them is ignored.
     """
     mask = _blank_quads(_changed_mask(before, after, threshold, search_mask), exclude_quads)
+    return region_from_mask(mask, search_mask, min_area_px, max_change_fraction, merge_gap_px)
+
+
+def region_from_mask(mask, search_mask=None, min_area_px=MIN_CHANGE_AREA_PX,
+                     max_change_fraction=MAX_CHANGE_FRACTION, merge_gap_px=None):
+    """Group a presegmented mask without adding grey/background pixels."""
     frame_area = mask.size if search_mask is None else np.count_nonzero(search_mask)
     if frame_area == 0:
         return None
@@ -76,19 +87,37 @@ def detect_change(before, after, exclude_quads=None, threshold=DIFF_THRESHOLD,
     if np.count_nonzero(mask) > max_change_fraction * frame_area:
         return None                      # a hand, a light change, or the board moved
 
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    candidates = [c for c in contours
-                  if min_area_px <= cv2.contourArea(c) <= max_change_fraction * frame_area]
+    # One placement can read as several blobs: where a part overlaps a
+    # similarly coloured one, few pixels change and the silhouette splits.
+    # Keeping only the biggest fragment discards the rest of the same part, so
+    # group fragments that sit within merge_gap_px of each other and keep the
+    # largest GROUP. The gap is small enough that a separate object elsewhere
+    # on the board stays its own region.
+    gap = MERGE_GAP_PX if merge_gap_px is None else int(merge_gap_px)
+    if gap > 0:
+        bridge = cv2.dilate(mask, np.ones((2*gap+1, 2*gap+1), np.uint8))
+    else:
+        bridge = mask
+    groups, _ = cv2.findContours(bridge, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    candidates = []
+    for group in groups:
+        # Score and report the ORIGINAL changed pixels; the dilation only decides
+        # which fragments belong together, it must not inflate the silhouette.
+        member = np.zeros_like(mask)
+        cv2.drawContours(member, [group], -1, 255, cv2.FILLED)
+        member &= mask
+        area = float(np.count_nonzero(member))
+        if min_area_px <= area <= max_change_fraction * frame_area:
+            candidates.append((area, member, group))
     if not candidates:
         return None
 
-    contour = max(candidates, key=cv2.contourArea)
-    moments = cv2.moments(contour)
+    area, isolated, group = max(candidates, key=lambda item: item[0])
+    moments = cv2.moments(isolated, binaryImage=True)
     centroid = (moments["m10"] / moments["m00"], moments["m01"] / moments["m00"])
-    isolated = np.zeros_like(mask)
-    cv2.drawContours(isolated, [contour], -1, 255, cv2.FILLED)
-    return ChangeRegion(tuple(int(v) for v in cv2.boundingRect(contour)),
-                        float(cv2.contourArea(contour)), centroid, contour, isolated)
+    ys, xs = np.nonzero(isolated)
+    bbox = (int(xs.min()), int(ys.min()), int(xs.max()-xs.min()+1), int(ys.max()-ys.min()+1))
+    return ChangeRegion(bbox, area, centroid, group, isolated)
 
 
 def frames_are_still(previous, current, threshold=DIFF_THRESHOLD,

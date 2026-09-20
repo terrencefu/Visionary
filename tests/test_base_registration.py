@@ -1,6 +1,7 @@
 import unittest
 from types import SimpleNamespace
 import numpy as np
+import config
 from assembly.base_registration import MovingRegistration,planar_marker_board
 from perception.geometry import pose_matrix
 from perception.moving_base import MarkerPose
@@ -38,14 +39,43 @@ class MovingRegistrationTests(unittest.TestCase):
         controller.detector = SimpleNamespace(detectMarkers=lambda raw:([corners],np.array([[5]]),[]))
         controller.observe(None)
         controller.arm()
-        corners += np.array([5.,0.],np.float32)
+        # Exceed whatever drift the rig currently tolerates, not a fixed pixel count.
+        shift = np.float32(config.MOVING_BASE_MAX_DRIFT_PX + 2.)
+        corners += np.array([shift,0.],np.float32)
         controller.observe(None)
         self.assertTrue(controller.invalidated)
-        corners -= np.array([5.,0.],np.float32)
+        corners -= np.array([shift,0.],np.float32)
         controller.observe(None)
         self.assertTrue(controller.invalidated)
         controller.begin_move()
         controller.arm()
+        self.assertFalse(controller.invalidated)
+
+    def test_adaptive_mode_keeps_baseline_after_marker_motion(self):
+        controller = MovingRegistration(5,30,self.K,np.zeros(5))
+        controller.adapt_motion = True
+        import cv2
+        corners = cv2.projectPoints(np.array([[-15.,-15,0],[15,-15,0],[15,15,0],[-15,15,0]]),
+                                   self.pose.rvec,self.pose.tvec,self.K,np.zeros(5))[0].reshape(1,4,2).astype(np.float32)
+        controller.detector = SimpleNamespace(detectMarkers=lambda raw:([corners],np.array([[5]]),[]))
+        controller.observe(None)
+        controller.arm()
+        corners += np.array([60.,0.],np.float32)
+        controller.observe(None)
+        self.assertFalse(controller.invalidated)
+        self.assertIsNotNone(controller.current)
+
+    def test_drift_within_tolerance_keeps_baseline_armed(self):
+        """Vibration below the configured limit must not invalidate a baseline."""
+        controller = MovingRegistration(5,30,self.K,np.zeros(5))
+        import cv2
+        corners = cv2.projectPoints(np.array([[-15.,-15,0],[15,-15,0],[15,15,0],[-15,15,0]]),
+                                   self.pose.rvec,self.pose.tvec,self.K,np.zeros(5))[0].reshape(1,4,2).astype(np.float32)
+        controller.detector = SimpleNamespace(detectMarkers=lambda raw:([corners],np.array([[5]]),[]))
+        controller.observe(None)
+        controller.arm()
+        corners += np.array([np.float32(config.MOVING_BASE_MAX_DRIFT_PX - 1.),0.],np.float32)
+        controller.observe(None)
         self.assertFalse(controller.invalidated)
 
     def test_marker_loss_preserves_binding_but_prevents_transform(self):

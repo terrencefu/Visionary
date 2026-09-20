@@ -93,13 +93,37 @@ python main.py perceive --cad Fusion_output --part-id "Plate 1x10 Silver" --anch
 4. The program verifies STL shape and fits metric anchor X/Y/yaw. Inspect the
    green outline, then press **Enter** to accept the anchor.
 
+### Colour-based changes after the first anchor
+
+The first grey engine-block anchor still uses the existing STL registration.
+For subsequent placements, the physical **blue 1x6** and **red 1x10 plates** are
+selected using HSV colour masks of newly added pixels. `Plate 1x10 Silver` stays
+as the exported CAD name but maps to physical red in `PLACEMENT_PART_COLOURS`.
+Unchanged earlier red pieces cannot satisfy the next red step.
+
+Colour selects the expected part's pixels; only that expected CAD mesh is used
+for orientation and metric fitting. **XY, yaw, support height, and metric fit
+checks remain active.** Colour alone does not pass a placement or prove its shape.
+No assembly command change is required. V checks and Enter checks/advances as before.
+The pose still assumes the CAD support height, so colour masking will not fix a
+height/registration error by itself. HSV ranges are starting values for real-light
+verification, not calibrated colour measurements. Overlapping same-colour pieces
+can hide new pixels and still cause a rejection.
+
+The existing `python -m perception.diagnose_placement ...` command automatically
+uses this path for blue/red components. Keep the engine/support assembly present
+in the baseline, then add only the new brick. It saves `4_colour_change.png`, the
+selected region, pose fit, and camera/board data for inspection. Keep projection
+off during the independent diagnostic; the main MVP already blanks it for checks.
+
 ### Every subsequent part
 
 1. The projector goes blank for the **move phase**. Slide/rotate the whole base
    if desired, keeping every installed component fixed relative to it.
 2. Lay it flat and remove your hands. Press **Space** to obtain a settled frame,
    update CAD registration from marker 5, and capture a fresh pre-placement baseline.
-3. Only now add the requested part. Do not move the base during placement.
+3. Only now add the requested part. Camera movement and flat base sliding/rotation
+   are compensated for blue/red checks; stop moving and remove hands before **V**.
 4. **V** checks shape, X/Y, and rotation. **Enter** checks again and advances only
    on a pass. Failures print position and rotation corrections.
 5. Repeat through the four JSON steps; completion blanks projection and exits.
@@ -109,10 +133,24 @@ Even if you do not move between steps, press Space before adding the next part.
 unverified new part *before* re-baselining, or the new piece will be absorbed into
 the baseline. **B** resets the whole assembly; clear it before a new baseline.
 **Q/Esc** exits. Keys apply to an OpenCV window with keyboard focus.
+Press a check key once: the preview shows Capturing/Checking while work runs.
+Repeated step keys are ignored during that work. Guidance geometry is cached
+between steps; tracking updates its transform without recomputing CAD surfaces.
+The initial engine fit also uses a fresh projector-blank capture. Its first outline
+confirms the engine anchor; after Enter and Space the outline guides the next part.
 
-During placement, marker loss pauses projection/checking. More than **3 px**
-maximum ID-5 corner movement invalidates the baseline until an explicit move/
-re-arm cycle. It stays invalid even if the marker returns to its old position.
+During blue/red placement, marker loss pauses projection/checking and reacquisition
+resumes the same baseline. The current fixed-board pose and marker-5 registration
+update the expected CAD position. Previous colour pixels are reprojected over the
+CAD height range, including elevated surfaces, before detecting new colour. Newly
+revealed image borders are excluded. The 1.5 px board drift gate no longer blocks
+these coloured steps; position/angle tolerances are unchanged. Initial engine
+registration and uncoloured diagnostics still need a stationary baseline. Large
+view changes, occlusion, or overlapping same-colour pieces may require removing
+the unverified addition and taking a fresh baseline with M then Space.
+
+This assumes the camera and projector remain rigidly attached, the assembly moves
+as a unit with marker 5, and previously accepted parts remain attached.
 The moving-base registration is constrained to a flat board after checking marker
 height within 5 mm and tilt within 15 degrees. This is **flat sliding/yaw support**,
 not arbitrary handheld/tilted assembly verification. Keep fixed markers visible
