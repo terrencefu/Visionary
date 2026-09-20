@@ -133,6 +133,11 @@ Even if you do not move between steps, press Space before adding the next part.
 unverified new part *before* re-baselining, or the new piece will be absorbed into
 the baseline. **B** resets the whole assembly; clear it before a new baseline.
 **Q/Esc** exits. Keys apply to an OpenCV window with keyboard focus.
+Press a check key once: the preview shows Capturing/Checking while work runs.
+Repeated step keys are ignored during that work. Guidance geometry is cached
+between steps; tracking updates its transform without recomputing CAD surfaces.
+The initial engine fit also uses a fresh projector-blank capture. Its first outline
+confirms the engine anchor; after Enter and Space the outline guides the next part.
 
 During blue/red placement, marker loss pauses projection/checking and reacquisition
 resumes the same baseline. The current fixed-board pose and marker-5 registration

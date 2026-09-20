@@ -14,6 +14,7 @@ class ManualAssembly:
         self.heights = plate_heights
         self.index = 0
         self.checked_index = None
+        self._scene_cache = {}
         self.models = load_models(folder)
         self.names = []
         self.operations = []
@@ -127,6 +128,28 @@ class ManualAssembly:
         return passed,message,debug
 
     def scene(self, height_mode='body'):
+        if self.complete:
+            return [], []
+        key = (self.index, height_mode)
+        if key not in self._scene_cache:
+            scene = self._build_scene(height_mode)
+            inverse = np.linalg.inv(self.transform)
+            def local(point):
+                return inverse[:3,:3] @ np.asarray(point) + inverse[:3,3]
+            self._scene_cache[key] = (
+                [(local(a),local(b),colour) for a,b,colour in scene[0]],
+                [(local(p),text,colour) for p,text,colour in scene[1]])
+        def board(point):
+            result = self.transform[:3,:3] @ point + self.transform[:3,3]
+            if cv2.pointPolygonTest(np.asarray(config.DETECTION_WORKSPACE_MM,np.float32),
+                                   tuple(map(float,result[:2])),False)<0:
+                raise ValueError('Assembly footprint extends beyond cardboard; reposition base')
+            return result
+        edges,labels = self._scene_cache[key]
+        return ([(board(a),board(b),colour) for a,b,colour in edges],
+                [(board(p),text,colour) for p,text,colour in labels])
+
+    def _build_scene(self, height_mode='body'):
         if self.complete:
             return [],[]
         if self.index == 0:

@@ -48,6 +48,23 @@ class ManualGuidanceTests(unittest.TestCase):
         self.assertEqual(machine.index,placements)
         np.testing.assert_array_equal(T,original)
 
+    def test_guidance_reuses_surface_geometry_and_tracks_new_transform(self):
+        folder = Path(__file__).resolve().parents[1]/'Fusion_output'
+        pose = SimpleNamespace(rvec=np.zeros(3),tvec=np.array([0.,0.,500.]))
+        name = anchor_component_name(folder)
+        data,T = register_cad(folder,name,{'xy_mm':np.array([150.,100.]),'yaw_deg':0.},pose)
+        machine = ManualAssembly(data,T,folder,plate_surface_heights(load_models(folder)[name]))
+        machine.index = 1
+        with patch.object(machine,'_build_scene',wraps=machine._build_scene) as build:
+            first = machine.scene()
+            machine.transform[:2,3] += [5.,3.]
+            second = machine.scene()
+            self.assertEqual(build.call_count,1)
+        for a,b in zip(first[0],second[0]):
+            np.testing.assert_allclose(b[0]-a[0],[5.,3.,0.],atol=1e-8)
+        fresh = machine._build_scene()
+        np.testing.assert_allclose([e[0] for e in second[0]], [e[0] for e in fresh[0]],atol=1e-8)
+
     def test_multi_operation_step_becomes_sequential_placements(self):
         """A CAD step holding two placements must yield two verifiable steps.
 
