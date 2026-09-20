@@ -127,3 +127,37 @@ class StillnessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FragmentMergingTests(unittest.TestCase):
+    """A part laid over a same-coloured one changes few pixels where they meet,
+    splitting one placement into several blobs. Keeping only the largest throws
+    away half the silhouette, so nearby fragments are merged into one region."""
+
+    def scene(self, mask):
+        before = np.full((480, 640, 3), 200, np.uint8)
+        after = before.copy()
+        after[mask != 0] = 30
+        return before, after
+
+    def test_fragments_split_by_a_thin_gap_are_one_region(self):
+        mask = np.zeros((480, 640), np.uint8)
+        cv2.rectangle(mask, (200, 220), (300, 260), 255, -1)
+        cv2.rectangle(mask, (312, 220), (420, 260), 255, -1)   # 12 px gap
+        region = detect_change(*self.scene(mask))
+        self.assertIsNotNone(region)
+        x, y, w, h = region.bbox
+        self.assertLess(x, 205)
+        self.assertGreater(x+w, 415, 'Region stops short: the far fragment was dropped')
+        self.assertGreater(np.count_nonzero(region.mask), 0.9*np.count_nonzero(mask))
+
+    def test_distant_blobs_remain_separate(self):
+        """Merging must not swallow an unrelated object elsewhere on the board."""
+        mask = np.zeros((480, 640), np.uint8)
+        cv2.rectangle(mask, (40, 40), (140, 90), 255, -1)
+        cv2.rectangle(mask, (400, 330), (560, 430), 255, -1)   # far larger blob
+        region = detect_change(*self.scene(mask))
+        x, y, w, h = region.bbox
+        self.assertGreater(x, 300, 'Unrelated distant blob was merged in')
+        self.assertEqual(np.count_nonzero(region.mask[40:90, 40:140]), 0,
+                         'The far-away smaller blob leaked into the region')

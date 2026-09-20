@@ -120,8 +120,18 @@ def main():
         parser.error('--change-only and --cad are separate test modes')
     if args.cad and not args.part_id:
         parser.error('--cad requires --part-id')
-    if args.anchor and (not args.cad or args.part_id != 'Plate 1x10 Silver'):
-        parser.error('--anchor requires --cad and --part-id "Plate 1x10 Silver"')
+    if args.anchor:
+        if not args.cad:
+            parser.error('--anchor requires --cad')
+        # The anchor is whichever part the CAD plan places first, not a fixed name.
+        from perception.anchor import anchor_component_name
+        try:
+            expected_anchor = anchor_component_name(args.cad)
+        except (OSError, KeyError, ValueError, StopIteration) as exc:
+            parser.error(f'Cannot read the anchor component from {args.cad}: {exc}')
+        if args.part_id != expected_anchor:
+            parser.error(f'--anchor requires --part-id "{expected_anchor}" '
+                         f'(the first part this CAD plan places)')
     if args.base_marker_id is not None and (not args.anchor or args.base_marker_size is None):
         parser.error('--base-marker-id requires --anchor and --base-marker-size')
     if args.base_marker_size is not None and args.base_marker_id is None:

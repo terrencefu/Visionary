@@ -276,12 +276,11 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                         print(f'  {name}: overlap={score:.3f}, sampled yaw={yaw:.0f} deg')
                     cv2.imshow('STL comparison: green=observed red=model yellow=overlap', debug)
                     if anchor and result == 'CORRECT SHAPE':
-                        from perception.anchor import estimate_anchor, register_cad, placement_scene
+                        from perception.anchor import estimate_anchor, register_cad
                         try:
                             estimate = estimate_anchor(models[part_id], region, pose, K, scores[0][2])
                             registration = register_cad(cad, part_id, estimate, pose)
                             height_mode = 'body'
-                            scene = placement_scene(*registration, 0, height_mm=heights[height_mode])
                             from assembly.manual_guidance import ManualAssembly
                             assembly = ManualAssembly(*registration,cad,heights)
                             if moving is not None:
@@ -291,7 +290,8 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                             print(assembly.message)
                             print(f"ANCHOR: center XY={estimate['xy_mm']} mm; yaw={estimate['yaw_deg']:.2f} deg; "
                                   f"unshifted overlap={estimate['overlap']:.3f}")
-                            print('Green outline uses the plate body deck. Enter confirms and shows plate 2; B rejects.')
+                            print('Green outline uses the inferred body deck. Enter confirms and '
+                                  'shows the next part; B rejects.')
                         except ValueError as exc:
                             blank_for_servo()
                             scene = registration = None
