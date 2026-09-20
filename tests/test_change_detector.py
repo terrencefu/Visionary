@@ -20,6 +20,28 @@ def scene_with_part(centre, shape=(480, 640), bgr=(200, 70, 30), outline=BRICK):
 
 
 class DetectChangeTests(unittest.TestCase):
+    def test_workspace_ignores_large_background_change(self):
+        before = blank_scene()
+        after = scene_with_part((320, 240))
+        after[:160] = 0  # More than 25% of the full image changes outside ROI.
+        roi = np.zeros(before.shape[:2], np.uint8)
+        roi[180:400, 180:500] = 255
+        region = detect_change(before, after, search_mask=roi)
+        self.assertIsNotNone(region)
+        self.assertLess(abs(region.centroid_px[0] - 320), 5)
+        self.assertLess(abs(region.centroid_px[1] - 240), 5)
+        background_only = before.copy()
+        background_only[:160] = 0
+        self.assertIsNone(detect_change(before, background_only, search_mask=roi))
+        self.assertTrue(frames_are_still(before, background_only, search_mask=roi))
+        self.assertFalse(frames_are_still(before, after, search_mask=roi))
+
+    def test_empty_workspace_cannot_detect_or_settle(self):
+        before = blank_scene()
+        roi = np.zeros(before.shape[:2], np.uint8)
+        self.assertIsNone(detect_change(before, before, search_mask=roi))
+        self.assertFalse(frames_are_still(before, before, search_mask=roi))
+
     def test_finds_a_newly_placed_part(self):
         before = blank_scene()
         after = scene_with_part((320, 240))

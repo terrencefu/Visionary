@@ -1,0 +1,523 @@
+{
+  "calibration_sha256": "7eb62eed9e128ebf1edd19c7171faba96d66a2df92b55a48f8fd34d5f555d867",
+  "saved_status": "VALIDATED AT RECORDED POSITION",
+  "timestamp": 1789857838.5046217,
+  "passed": false,
+  "note": "Verification only. Local reference does not authorize guidance or replace saved reference.",
+  "reference_acquisition": [
+    {
+      "frame": 1,
+      "elapsed_s": 0.5160000000032596,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1290442250457564,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 2,
+      "elapsed_s": 1.0470000000059372,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1120848559085112,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 2
+    },
+    {
+      "frame": 3,
+      "elapsed_s": 1.5470000000059372,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1321061411056672,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 3
+    },
+    {
+      "frame": 4,
+      "elapsed_s": 2.047000000005937,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1364800630254306,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 4
+    },
+    {
+      "frame": 5,
+      "elapsed_s": 2.547000000005937,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1472679247214357,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 5
+    },
+    {
+      "frame": 6,
+      "elapsed_s": 3.047000000005937,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1225863292308966,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 6
+    },
+    {
+      "frame": 7,
+      "elapsed_s": 3.5780000000086147,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1323461746945904,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 7
+    },
+    {
+      "frame": 8,
+      "elapsed_s": 4.078000000008615,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1362780467194773,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 8
+    },
+    {
+      "frame": 9,
+      "elapsed_s": 4.578000000008615,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1438192194983114,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 9,
+      "stable_window": true
+    }
+  ],
+  "reference_requirements": {
+    "marker_ids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "consecutive_frames": 9,
+    "timeout_s": 30.0
+  },
+  "current_window": {
+    "jitter_median_px": 0.08397575475106003,
+    "max_deviation_px": 0.22689844227230527,
+    "rvec": [
+      [
+        0.06335965120586032
+      ],
+      [
+        1.8136763727826875
+      ],
+      [
+        -2.503483768542378
+      ]
+    ],
+    "tvec": [
+      [
+        117.3684615418132
+      ],
+      [
+        25.343489982892812
+      ],
+      [
+        644.3848152647757
+      ]
+    ],
+    "object_points": [
+      [
+        -15.0,
+        -15.0,
+        0.0
+      ],
+      [
+        15.0,
+        -15.0,
+        0.0
+      ],
+      [
+        15.0,
+        15.0,
+        0.0
+      ],
+      [
+        -15.0,
+        15.0,
+        0.0
+      ],
+      [
+        288.0,
+        -15.0,
+        0.0
+      ],
+      [
+        318.0,
+        -15.0,
+        0.0
+      ],
+      [
+        318.0,
+        15.0,
+        0.0
+      ],
+      [
+        288.0,
+        15.0,
+        0.0
+      ],
+      [
+        -15.0,
+        188.0,
+        0.0
+      ],
+      [
+        15.0,
+        188.0,
+        0.0
+      ],
+      [
+        15.0,
+        218.0,
+        0.0
+      ],
+      [
+        -15.0,
+        218.0,
+        0.0
+      ],
+      [
+        288.0,
+        189.0,
+        0.0
+      ],
+      [
+        318.0,
+        189.0,
+        0.0
+      ],
+      [
+        318.0,
+        219.0,
+        0.0
+      ],
+      [
+        288.0,
+        219.0,
+        0.0
+      ]
+    ],
+    "marker_ids": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "saved_reference_drift_px": 17.533403817110766,
+  "camera_properties": {
+    "exposure": -7.0,
+    "gain": 0.0,
+    "autofocus": -1.0,
+    "focus": -1.0,
+    "auto_exposure": -1.0
+  },
+  "measurements": [
+    {
+      "target_xy": [
+        127.42807521820069,
+        126.98963088989258
+      ],
+      "error_mm": 3.7523882626535894,
+      "measurement": {
+        "projector_uv": [
+          842,
+          531
+        ],
+        "camera_uv": [
+          955.5094117647059,
+          493.1094117647059
+        ],
+        "board_xyz": [
+          124.62086634940695,
+          129.47961001443684,
+          0.0
+        ],
+        "rvec": [
+          0.06310736641458223,
+          1.8135755213693006,
+          -2.5036232219764063
+        ],
+        "tvec": [
+          117.37654849656568,
+          25.3550138204572,
+          644.3495992506298
+        ],
+        "aruco_rms": 1.12098541446653,
+        "visible_ids": [
+          0,
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "target_xy": [
+        188.4484624862671,
+        150.50178985595704
+      ],
+      "error_mm": 1.3503850017977388,
+      "measurement": {
+        "projector_uv": [
+          1073,
+          583
+        ],
+        "camera_uv": [
+          817.8392295597483,
+          474.3506289308176
+        ],
+        "board_xyz": [
+          187.0985060296576,
+          150.5358077679839,
+          0.0
+        ],
+        "rvec": [
+          0.06344540255997057,
+          1.8136105426718685,
+          -2.503570624047489
+        ],
+        "tvec": [
+          117.38029721557109,
+          25.329873362119113,
+          644.3344807550368
+        ],
+        "aruco_rms": 1.1353531375469759,
+        "visible_ids": [
+          0,
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "target_xy": [
+        66.40768795013429,
+        109.35551166534424
+      ],
+      "error_mm": 5.249378805495622,
+      "measurement": {
+        "projector_uv": [
+          624,
+          493
+        ],
+        "camera_uv": [
+          1081.100529100529,
+          506.9566137566137
+        ],
+        "board_xyz": [
+          62.987150331151994,
+          113.33745845563584,
+          0.0
+        ],
+        "rvec": [
+          0.06300745906245017,
+          1.8137004511350259,
+          -2.5036167923521337
+        ],
+        "tvec": [
+          117.37523334035255,
+          25.318066782788154,
+          644.3190281803751
+        ],
+        "aruco_rms": 1.1126706324792652,
+        "visible_ids": [
+          0,
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "target_xy": [
+        173.19336566925048,
+        103.47747192382812
+      ],
+      "error_mm": 3.639640666857103,
+      "measurement": {
+        "projector_uv": [
+          1007,
+          486
+        ],
+        "camera_uv": [
+          858.6666666666666,
+          509.05128205128204
+        ],
+        "board_xyz": [
+          169.75357649060388,
+          104.66694012025278,
+          0.0
+        ],
+        "rvec": [
+          0.06337052956817983,
+          1.8136514157205117,
+          -2.503404633960415
+        ],
+        "tvec": [
+          117.35102137619809,
+          25.326918177002312,
+          644.3675487544414
+        ],
+        "aruco_rms": 1.1547567127262712,
+        "visible_ids": [
+          0,
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "target_xy": [
+        66.40768795013429,
+        144.62375011444092
+      ],
+      "error_mm": 4.909978636218566,
+      "measurement": {
+        "projector_uv": [
+          606,
+          567
+        ],
+        "camera_uv": [
+          1091.141797556719,
+          480.2338568935427
+        ],
+        "board_xyz": [
+          64.61869257487243,
+          149.19620960091146,
+          0.0
+        ],
+        "rvec": [
+          0.06327248253151409,
+          1.8134552695862634,
+          -2.503139077755286
+        ],
+        "tvec": [
+          117.25042900603788,
+          25.166580859878437,
+          644.4355251959003
+        ],
+        "aruco_rms": 1.1705777142702525,
+        "visible_ids": [
+          0,
+          1,
+          2,
+          3
+        ]
+      }
+    }
+  ],
+  "rms_mm": 4.020318633201356,
+  "max_mm": 5.249378805495622,
+  "limit_mm": 5.0,
+  "calibration_bytes_unchanged": true
+}

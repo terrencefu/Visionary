@@ -1,0 +1,9 @@
+{
+  "calibration_sha256": "7eb62eed9e128ebf1edd19c7171faba96d66a2df92b55a48f8fd34d5f555d867",
+  "saved_status": "VALIDATED AT RECORDED POSITION",
+  "timestamp": 1789857570.9563167,
+  "passed": false,
+  "note": "Verification only. Local reference does not authorize guidance or replace saved reference.",
+  "rejection": "Marker set changed during reference window; retry verification.",
+  "calibration_bytes_unchanged": true
+}

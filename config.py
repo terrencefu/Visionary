@@ -27,6 +27,10 @@ MARKER_CENTERS_MM = {
 }
 # Interior calibration region; visually verify the dots actually hit flat cardboard.
 BOARD_BOUNDS_MM = (30.0, 30.0, 273.0, 173.0)
+# Detection only: cardboard extends 30 mm beyond the marker-center boundary.
+# Preserve the lower edge's measured 1 mm slope. Not projector calibration bounds.
+DETECTION_WORKSPACE_MM = ((-30.0, -30.0), (333.0, -30.0),
+                          (333.0, 234.0), (-30.0, 233.0))
 MIN_VISIBLE_MARKERS = 3
 MAX_ARUCO_RMS_PX = 3.0
 COLLECTOR_MAX_ARUCO_RMS_PX = 5.0  # Projector collection only; tighten here later.

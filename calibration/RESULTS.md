@@ -1,3 +1,5 @@
+> **HISTORICAL REPORT:** This describes an older fixture and thresholds. See the root README and config.py for the current setup; do not restore these measurements.
+
 # Calibration and fixture diagnostic results
 
 Captured on 2026-09-19. These results belong to the current webcam and fixture; they are not a generic camera calibration.
