@@ -114,3 +114,14 @@ def validate_fixture(require_bounds=True):
     x0, y0, x1, y1 = BOARD_BOUNDS_MM
     if not np.isfinite(BOARD_BOUNDS_MM).all() or x1 <= x0 or y1 <= y0:
         raise ValueError("Invalid BOARD_BOUNDS_MM.")
+
+# Physical demo colours; CAD component labels are retained as exported.
+PLACEMENT_PART_COLOURS = {
+    "389423 Bright Blue Technic Brick 1 x 6 with Holes": "blue",
+    "Plate 1x10 Silver": "red",
+}
+# OpenCV HSV: hue 0..179. Tune only against actual captured masks.
+PLACEMENT_COLOUR_HSV = {
+    "blue": (((95, 90, 45), (135, 255, 255)),),
+    "red": (((0, 100, 45), (10, 255, 255)), ((170, 100, 45), (179, 255, 255))),
+}

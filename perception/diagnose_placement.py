@@ -21,6 +21,10 @@ from hardware.camera import Camera
 from perception.aruco import BoardTracker
 from perception.change_detector import _changed_mask, detect_change
 from perception.pipeline import marker_quads
+from perception.colour_change import part_colour, detect_colour_change, expected_pose_seed
+from perception.anchor import estimate_anchor
+from perception.demo_change import workspace_polygon
+from perception.aruco import board_drift_px
 
 
 def _stats(name, mask):
@@ -44,8 +48,12 @@ def run(cad, part_id, base_z=0.0, camera_index=None):
 
     out = config.DATA_DIR / ('diagnose_' + _dt.datetime.now().strftime('%Y%m%dT%H%M%S'))
     baseline = None
+    baseline_pose = None
     report = {'part_id': part_id, 'base_z': base_z}
-    print('Clear the board and press Space for the baseline. Q/Esc exits.')
+    colour = part_colour(part_id)
+    print('Keep the supporting assembly in place WITHOUT the new part; Space captures baseline. Q/Esc exits.')
+    if colour:
+        print(f'Expected colour: {colour}. Colour selects the new pixels; CAD still fits XY/yaw.')
     with Camera() as camera:
         while True:
             raw = camera.read()
@@ -72,9 +80,17 @@ def run(cad, part_id, base_z=0.0, camera_index=None):
             undistorted = cv2.undistort(raw, K, dist)
             if baseline is None:
                 baseline = undistorted
+                baseline_pose = pose
                 print('Baseline captured. Place the part, remove your hand, press Space.')
                 continue
 
+            out = config.DATA_DIR / ('diagnose_' + _dt.datetime.now().strftime('%Y%m%dT%H%M%S_%f'))
+            report = {'part_id': part_id, 'base_z': base_z, 'expected_colour': colour,
+                      'camera_matrix': K.tolist(), 'dist_coeffs': dist.tolist(),
+                      'rvec': pose.rvec.tolist(), 'tvec': pose.tvec.tolist(),
+                      'baseline_rvec': baseline_pose.rvec.tolist(), 'baseline_tvec': baseline_pose.tvec.tolist()}
+            drift = board_drift_px(baseline_pose, pose, K, dist)
+            report['board_drift_px'] = drift
             out.mkdir(parents=True, exist_ok=True)
             cv2.imwrite(str(out / '1_before.png'), baseline)
             cv2.imwrite(str(out / '2_after.png'), undistorted)
@@ -85,7 +101,18 @@ def run(cad, part_id, base_z=0.0, camera_index=None):
             cv2.imwrite(str(out / '4_threshold_mask.png'), raw_mask)
             report['threshold_mask'] = _stats('threshold_mask', raw_mask)
 
-            region = detect_change(baseline, undistorted, exclude_quads=quads)
+            search_mask = np.zeros(undistorted.shape[:2], np.uint8)
+            cv2.fillConvexPoly(search_mask, workspace_polygon(pose, K), 255)
+            if colour:
+                region, colour_pixels = detect_colour_change(baseline, undistorted, colour,
+                    exclude_quads=quads, search_mask=search_mask)
+                cv2.imwrite(str(out / '4_colour_change.png'), colour_pixels)
+            else:
+                region = detect_change(baseline, undistorted, exclude_quads=quads, search_mask=search_mask)
+            if drift > config.MAX_BOARD_DRIFT_PX:
+                report['status'] = 'BOARD MOVED - repeat baseline'
+                print(report['status'])
+                region = None
             if region is None:
                 report['region'] = None
                 print('No change region found. See', out)
@@ -96,8 +123,20 @@ def run(cad, part_id, base_z=0.0, camera_index=None):
                 report['region']['kept_fraction_of_threshold'] = round(
                     float(np.count_nonzero(region.mask)) /
                     max(1, np.count_nonzero(raw_mask)), 3)
-                status, scores, debug = verify(models, part_id, region, pose, K,
-                                               base_z=base_z)
+                if colour:
+                    seed, scores, debug = expected_pose_seed(models[part_id], part_id, region, pose, K, base_z)
+                    status = f'NEW {colour.upper()} PIXELS DETECTED - fitting expected CAD pose'
+                else:
+                    status, scores, debug = verify(models, part_id, region, pose, K, base_z=base_z)
+                    seed = scores[0][2]
+                try:
+                    fitted = estimate_anchor(models[part_id], region, pose, K, seed, base_z=base_z)
+                    report['fitted_pose'] = dict(xy_mm=fitted['xy_mm'].tolist(),
+                        yaw_deg=fitted['yaw_deg'], overlap=fitted['overlap'])
+                    print('Observed pose (assumes specified base height):', report['fitted_pose'])
+                except ValueError as exc:
+                    report['pose_error'] = str(exc)
+                    print('Pose uncertain:', exc)
                 cv2.imwrite(str(out / '6_overlap.png'), debug)
                 report['status'] = status
                 report['scores'] = [{'part': n, 'overlap': round(float(s), 4),

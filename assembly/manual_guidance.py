@@ -67,7 +67,25 @@ class ManualAssembly:
             self.index += 1
             self.checked_index = None
 
-    def validate(self, region, pose, K):
+    def validate_frames(self, before, after, pose, K, *, exclude_quads=None, search_mask=None):
+        """Later coloured parts use a colour-selected change mask, then metric checks."""
+        from perception.colour_change import part_colour, detect_colour_change
+        from perception.change_detector import detect_change
+        self.checked_index = None
+        colour = part_colour(self.names[self.index]) if self.index > 0 else None
+        if colour:
+            region, mask = detect_colour_change(before, after, colour,
+                exclude_quads=exclude_quads, search_mask=search_mask)
+            if region is None:
+                debug = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+                return False, f'Expected a NEW {colour} part; no accepted colour change. Cannot advance.', debug
+        else:
+            region = detect_change(before, after, exclude_quads=exclude_quads, search_mask=search_mask)
+            if region is None:
+                return False, 'No accepted new part change; cannot advance', np.zeros_like(after)
+        return self.validate(region, pose, K, colour_verified=colour)
+
+    def validate(self, region, pose, K, *, colour_verified=None):
         """Check the current addition at its expected CAD support height."""
         self.checked_index = None
         name = self.names[self.index]
@@ -76,10 +94,15 @@ class ManualAssembly:
         root_center = np.array([(lo[0]+hi[0])/2,(lo[1]+hi[1])/2,lo[2]])
         expected = self.transform[:3,:3] @ root_center + self.transform[:3,3]
         yaw = float(np.degrees(np.arctan2(self.transform[1,0],self.transform[0,0])) % 360)
-        status,scores,debug = verify(self.models,name,region,pose,K,base_z=expected[2])
-        if status != 'CORRECT SHAPE':
-            return False, f'{status}: {scores}', debug
-        measured = estimate_anchor(self.models[name],region,pose,K,scores[0][2],base_z=expected[2])
+        if colour_verified:
+            from perception.colour_change import expected_pose_seed
+            initial_yaw,scores,debug = expected_pose_seed(self.models[name],name,region,pose,K,expected[2])
+        else:
+            status,scores,debug = verify(self.models,name,region,pose,K,base_z=expected[2])
+            if status != 'CORRECT SHAPE':
+                return False, f'{status}: {scores}', debug
+            initial_yaw = scores[0][2]
+        measured = estimate_anchor(self.models[name],region,pose,K,initial_yaw,base_z=expected[2])
         correction = expected[:2]-measured['xy_mm']
         distance = float(np.linalg.norm(correction))
         # User's LEGO MVP explicitly treats 180-degree symmetry as equivalent.
@@ -91,7 +114,8 @@ class ManualAssembly:
                    f'expected XY={np.round(expected[:2],2)}, observed XY={np.round(measured["xy_mm"],2)} mm; '
                    f'correction X={correction[0]:+.2f}, Y={correction[1]:+.2f} mm, yaw={angle:+.1f} deg; '
                    f'position error={distance:.2f} mm; CAD base Z={expected[2]:.2f} mm; '
-                   f'overlap={measured["overlap"]:.3f}')
+                   f'overlap={measured["overlap"]:.3f}'
+                   + (f'; detected colour={colour_verified}' if colour_verified else ''))
         return passed,message,debug
 
     def scene(self, height_mode='body'):
