@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import cv2
 import numpy as np
 
+import config
 from perception.change_detector import detect_change
 from perception.stl_matcher import read_stl, silhouette, verify, load_models, model_to_board
 
@@ -86,3 +87,41 @@ class StlTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class IdentityGateTests(unittest.TestCase):
+    """The absolute floor rejects junk; the margin decides identity.
+
+    The caller always knows which part is due, so verification tests one
+    hypothesis. A low overlap on a shallow rig means poor segmentation, not a
+    wrong part -- only the gap to the runner-up carries identity information.
+    """
+    def setUp(self):
+        self.K = np.array([[900., 0, 320], [0, 900., 240], [0, 0, 1]])
+        self.pose = SimpleNamespace(rvec=np.array([2.6, 0., 0.]), tvec=np.array([0., 0., 400.]))
+        self.models = {'long': box((48, 8, 11)), 'wide': box((24, 20, 16))}
+
+    def region_from(self, mask):
+        before = np.full((480, 640, 3), 200, np.uint8)
+        after = before.copy()
+        after[mask != 0] = 30
+        return detect_change(before, after)
+
+    def test_degraded_but_unambiguous_observation_is_accepted(self):
+        """A shadow-inflated outline still names the part it clearly matches."""
+        mask = silhouette(self.models['long'], 33, (0, 0), self.pose, self.K, (480, 640))
+        inflated = cv2.dilate(mask, np.ones((7, 7), np.uint8))
+        status, scores, _ = verify(self.models, 'long', self.region_from(inflated),
+                                   self.pose, self.K)
+        self.assertLess(scores[0][1], 0.76, 'Fixture no longer sits below the old gate')
+        self.assertGreater(scores[0][1] - scores[1][1], config.STL_MATCH_MARGIN)
+        self.assertEqual(status, 'CORRECT SHAPE', scores)
+
+    def test_unrecognisable_region_stays_uncertain(self):
+        """Every score below the floor means the mask is junk, not a part."""
+        noise = np.zeros((480, 640), np.uint8)
+        cv2.circle(noise, (320, 240), 90, 255, -1)
+        status, scores, _ = verify(self.models, 'long', self.region_from(noise),
+                                   self.pose, self.K)
+        self.assertLess(scores[0][1], config.STL_MATCH_MIN_OVERLAP, scores)
+        self.assertEqual(status, 'UNCERTAIN')

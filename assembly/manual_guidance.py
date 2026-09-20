@@ -18,14 +18,21 @@ class ManualAssembly:
         self.names = []
         self.operations = []
         seen = set()
+        # A CAD step may hold several operations: the planner groups placements
+        # whose dependencies allow them in any order. Perception can only judge
+        # ONE new part per baseline, so flatten to a linear placement sequence.
+        # Within a step the JSON order is kept; dependencies are checked against
+        # everything already placed, which is stricter than per-step checking.
         for step in data['assembly_plan']['steps']:
-            if len(step['operations']) != 1:
-                raise ValueError('Manual MVP requires one operation per CAD step')
-            op = step['operations'][0]
-            if op['type'] != 'PLACE' or not set(op.get('dependencies',[])) <= seen:
-                raise ValueError('Unsupported operation or unsatisfied CAD dependency order')
-            self.operations.append(op)
-            seen.add(op['id'])
+            for op in step['operations']:
+                if op['type'] != 'PLACE':
+                    raise ValueError(f'Unsupported operation type {op["type"]!r}; '
+                                     'the manual MVP only places parts')
+                if not set(op.get('dependencies',[])) <= seen:
+                    raise ValueError(f'Operation {op["id"]!r} depends on a part that is '
+                                     'not placed earlier in the plan')
+                self.operations.append(op)
+                seen.add(op['id'])
         manifest = json.loads((Path(folder)/'toCV_output.json').read_text())
         entries = {c['id']:c for c in manifest['components']}
         definitions = {c['id']:c for c in data['components']}
@@ -90,8 +97,12 @@ class ManualAssembly:
     def scene(self, height_mode='body'):
         if self.complete:
             return [],[]
-        if self.index < 2:
-            return placement_scene(self.data,self.transform,self.index,self.heights[height_mode])
+        if self.index == 0:
+            # Nothing is installed yet, so there is no surface to sample onto.
+            # The height toggle belongs to the anchor, whose mesh it was measured
+            # from; applying it to any later part would be a different part's mm.
+            return placement_scene(self.data,self.transform,self.operations[0]['part'],
+                                   self.heights[height_mode])
         target = self.meshes[self.index]
         low, high = target.min(axis=(0,1)), target.max(axis=(0,1))
         xy = np.array([[low[0],low[1]],[high[0],low[1]],

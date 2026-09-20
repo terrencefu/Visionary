@@ -44,7 +44,7 @@ class MovingRegistration:
             return
         try:
             self.current = solve_marker(corners[indices[0]].reshape(4,2),self.size,self.K,self.dist,config.MAX_ARUCO_RMS_PX)
-            if self.reference_corners is not None and np.max(np.linalg.norm(self.current.corners-self.reference_corners,axis=1))>3.:
+            if self.reference_corners is not None and np.max(np.linalg.norm(self.current.corners-self.reference_corners,axis=1))>config.MOVING_BASE_MAX_DRIFT_PX:
                 self.invalidated = True
             self.reason = 'Moving marker tracked'
         except (ValueError,cv2.error) as exc:

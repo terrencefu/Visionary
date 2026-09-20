@@ -5,6 +5,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+import config
 from perception.geometry import board_point_from_undistorted_pixel
 from perception.stl_matcher import model_to_board, silhouette
 
@@ -55,9 +56,20 @@ def estimate_anchor(mesh, region, pose, K, initial_yaw, base_z=0.0):
                         best, params, improved = score, candidate, True
             if not improved:
                 break
-    if best < .80:
-        raise ValueError(f'Anchor pose uncertain: unshifted silhouette overlap {best:.3f} < 0.80')
+    if best < config.ANCHOR_MIN_OVERLAP:
+        raise ValueError(f'Anchor pose uncertain: unshifted silhouette overlap '
+                         f'{best:.3f} < {config.ANCHOR_MIN_OVERLAP:.3f}')
     return {'xy_mm': params[:2], 'yaw_deg': float(params[2] % 360), 'overlap': float(best)}
+
+
+def anchor_component_name(folder):
+    """Component name the plan places first. The anchor follows the CAD, not a
+    fixed part: re-exporting the assembly can change which part comes first."""
+    data = json.loads((Path(folder) / 'assembly.json').read_text())
+    first = data['assembly_plan']['steps'][0]['operations'][0]['part']
+    part = next(p for p in data['parts'] if p['id'] == first)
+    definition = next(c for c in data['components'] if c['id'] == part['component'])
+    return definition.get('fusion_component_name', part['component'])
 
 
 def register_cad(folder, anchor_component, estimate, pose):
@@ -68,7 +80,10 @@ def register_cad(folder, anchor_component, estimate, pose):
     part = parts[first['part']]
     definition = definitions[part['component']]
     if definition.get('fusion_component_name', part['component']) != anchor_component:
-        raise ValueError('Anchor test must use the first assembly component')
+        raise ValueError(
+            f'Anchor must be the first placed component. This plan starts with '
+            f'{definition.get("fusion_component_name", part["component"])!r}, '
+            f'not {anchor_component!r}.')
     from perception.stl_matcher import read_stl
     manifest = json.loads((Path(folder) / 'toCV_output.json').read_text())
     entry = next(c for c in manifest['components'] if c['id'] == anchor_component)
@@ -97,13 +112,14 @@ def plate_surface_heights(mesh):
     return {'max': float(high-low), 'body': float(body-low)}
 
 
-def placement_scene(data, transform, index, height_mm=None):
-    """Top bounding-face outline for the first two flat silver plates only."""
-    operation = data['assembly_plan']['steps'][index]['operations'][0]
-    part = next(p for p in data['parts'] if p['id'] == operation['part'])
+def placement_scene(data, transform, part_id, height_mm=None, color=(0, 255, 0)):
+    """Top bounding-face outline for one placed part, in board mm.
+
+    Addressed by part id rather than plan-step index: a CAD step may hold
+    several operations, so step number and placement number are not the same.
+    """
+    part = next(p for p in data['parts'] if p['id'] == part_id)
     definition = next(c for c in data['components'] if c['id'] == part['component'])
-    if definition.get('fusion_component_name') != 'Plate 1x10 Silver':
-        raise ValueError('This MVP alignment test supports the first two silver plates only')
     lo, hi = np.array(definition['bounding_box']['min']), np.array(definition['bounding_box']['max'])
     corners = np.array([[x,y,z] for x in (lo[0],hi[0]) for y in (lo[1],hi[1]) for z in (lo[2],hi[2])])
     root = corners @ np.asarray(part['rotation']).T + np.asarray(part['position'])
@@ -112,7 +128,7 @@ def placement_scene(data, transform, index, height_mm=None):
         raise ValueError('Expected a horizontal four-corner top face')
     if height_mm is not None:
         if not np.isfinite(height_mm) or not 0 <= height_mm <= np.ptp(root[:,2])+1e-5:
-            raise ValueError('Diagnostic surface height outside plate bounds')
+            raise ValueError('Diagnostic surface height outside part bounds')
         top[:,2] = root[:,2].min() + height_mm
     center = top.mean(axis=0)
     top = top[np.argsort(np.arctan2(top[:,1]-center[1], top[:,0]-center[0]))]
@@ -120,7 +136,6 @@ def placement_scene(data, transform, index, height_mm=None):
     import config
     workspace = np.asarray(config.DETECTION_WORKSPACE_MM, np.float32)
     if any(cv2.pointPolygonTest(workspace, tuple(map(float,p[:2])), False) < 0 for p in board):
-        raise ValueError('Plate target is outside the cardboard; reposition the anchor and retry')
-    color = (0,255,0) if index == 0 else (0,0,255)
+        raise ValueError('Target is outside the cardboard; reposition the anchor and retry')
     return ([(a,b,color) for a,b in zip(board,np.roll(board,-1,axis=0))],
-            [(board.mean(axis=0), f'Plate {index+1}', color)])
+            [(board.mean(axis=0), part_id.split(':')[0][:28], color)])
