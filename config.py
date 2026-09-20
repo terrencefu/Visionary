@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-CAMERA_INDEX = 1  # DirectShow: webcam AC310 = 1; Intel LNL integrated = 0 on THIS computer.
+CAMERA_INDEX = 0  # DirectShow: webcam AC310 = 1; Intel LNL integrated = 0 on THIS computer.
 CAMERA_SIZE = (1920, 1080)
 PREVIEW_ROTATE_180 = True
 CAMERA_CALIBRATION = ROOT / "camera_calibration_1080p.npz"

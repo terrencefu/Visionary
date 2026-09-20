@@ -92,7 +92,11 @@ class ManualAssembly:
             region = detect_change(before, after, exclude_quads=exclude_quads, search_mask=search_mask)
             if region is None:
                 return False, 'No accepted new part change; cannot advance', np.zeros_like(after)
-        return self.validate(region, pose, K, colour_verified=colour)
+        result = self.validate(region, pose, K, colour_verified=colour)
+        if not result[0]:
+            from perception.placement_evidence import save_check
+            save_check(self,before,after,region,pose,K,result[1])
+        return result
 
     def validate(self, region, pose, K, *, colour_verified=None):
         """Check the current addition at its expected CAD support height."""
@@ -103,15 +107,27 @@ class ManualAssembly:
         root_center = np.array([(lo[0]+hi[0])/2,(lo[1]+hi[1])/2,lo[2]])
         expected = self.transform[:3,:3] @ root_center + self.transform[:3,3]
         yaw = float(np.degrees(np.arctan2(self.transform[1,0],self.transform[0,0])) % 360)
+        self.last_check = dict(component=name,part=self.operations[self.index]['part'],
+                               step_index=self.index,expected_xyz=expected.tolist(),expected_yaw=yaw,
+                               cad_to_board=self.transform.tolist(),root_center=root_center.tolist(),
+                               colour_verified=colour_verified)
         if colour_verified:
             from perception.colour_change import expected_pose_seed
             initial_yaw,scores,debug = expected_pose_seed(self.models[name],name,region,pose,K,expected[2])
         else:
             status,scores,debug = verify(self.models,name,region,pose,K,base_z=expected[2])
+            self.last_check.update(identity_status=status,scores=[(n,float(s),float(a)) for n,s,a in scores])
             if status != 'CORRECT SHAPE':
                 return False, f'{status}: {scores}', debug
             initial_yaw = scores[0][2]
-        measured = estimate_anchor(self.models[name],region,pose,K,initial_yaw,base_z=expected[2])
+        self.last_check.update(scores=[(n,float(s),float(a)) for n,s,a in scores],initial_yaw=float(initial_yaw))
+        try:
+            measured = estimate_anchor(self.models[name],region,pose,K,initial_yaw,base_z=expected[2])
+        except ValueError as exc:
+            self.last_check['fit_rejection'] = str(exc)
+            return False,f'PLACEMENT UNCERTAIN: {exc}',debug
+        self.last_check.update(measured_xy=measured['xy_mm'].tolist(),measured_yaw=measured['yaw_deg'],
+                               fitted_overlap=measured['overlap'])
         correction = expected[:2]-measured['xy_mm']
         distance = float(np.linalg.norm(correction))
         # User's LEGO MVP explicitly treats 180-degree symmetry as equivalent.
