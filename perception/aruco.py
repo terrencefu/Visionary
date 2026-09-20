@@ -53,16 +53,21 @@ def make_detector():
     return cv2.aruco.ArucoDetector(dictionary, params)
 
 
-def marker_corners(marker_id):
-    cx, cy = config.MARKER_CENTERS_MM[marker_id]
+def marker_corners(marker_id, centers=None):
+    cx, cy = (config.MARKER_CENTERS_MM if centers is None else centers)[marker_id]
     h = config.MARKER_SIZE_MM / 2
     return np.array([[cx-h, cy-h, 0], [cx+h, cy-h, 0],
                      [cx+h, cy+h, 0], [cx-h, cy+h, 0]], dtype=np.float64)
 
 
 class BoardTracker:
-    def __init__(self, K, dist, *, max_rms_px=None):
+    def __init__(self, K, dist, *, max_rms_px=None, marker_centers=None):
         config.validate_fixture(require_bounds=False)
+        self.marker_centers = dict(config.MARKER_CENTERS_MM if marker_centers is None else marker_centers)
+        if (len(self.marker_centers) < config.MIN_VISIBLE_MARKERS or
+                any(not isinstance(i, int) or not 0 <= i < 50 or np.shape(p) != (2,)
+                    or not np.isfinite(p).all() for i, p in self.marker_centers.items())):
+            raise ValueError("Invalid board marker centers.")
         self.K, self.dist = K, dist
         self.max_rms_px = max_rms_px
         if max_rms_px is not None and (not np.isfinite(max_rms_px) or max_rms_px <= 0):
@@ -83,10 +88,10 @@ class BoardTracker:
             debug.reject("no_markers", "No markers detected; solvePnP not attempted.")
             return None
         debug.detected_ids = [int(i) for i in ids.flatten()]
-        debug.known_ids = [i for i in debug.detected_ids if i in config.MARKER_CENTERS_MM]
-        debug.unknown_ids = [i for i in debug.detected_ids if i not in config.MARKER_CENTERS_MM]
+        debug.known_ids = [i for i in debug.detected_ids if i in self.marker_centers]
+        debug.unknown_ids = [i for i in debug.detected_ids if i not in self.marker_centers]
         known = [(int(i), c.reshape(4, 2)) for i, c in zip(ids.flatten(), corners)
-                 if int(i) in config.MARKER_CENTERS_MM]
+                 if int(i) in self.marker_centers]
         debug.known_marker_count = len(known)
         if len(known) < config.MIN_VISIBLE_MARKERS or len({i for i, _ in known}) != len(known):
             reasons = []
@@ -99,7 +104,7 @@ class BoardTracker:
                          "; ".join(reasons) + "; solvePnP not attempted.")
             return None
         known.sort(key=lambda item: item[0])
-        obj = np.concatenate([marker_corners(i) for i, _ in known])
+        obj = np.concatenate([marker_corners(i, self.marker_centers) for i, _ in known])
         img = np.concatenate([c for _, c in known]).astype(np.float64)
         debug.object_points, debug.image_points = obj, img
         debug.used_marker_count = len(known)

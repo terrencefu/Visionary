@@ -2,6 +2,10 @@
 
 Hackathon MVP: establish a measured ArUco world frame, calibrate a rigid camera/projector pair, then independently measure where projected guidance lands. Fusion, part perception, and servo control are later integrations.
 
+## Automatic board following (prototype)
+
+Run `python main.py follow-board` for a preview without movement. USB pan/tilt control and optional live 3D projection are on this branch; see [tracking setup and commands](tracking/README.md). Physical direction and response checks are still required.
+
 ## Current setup
 
 - Python 3.11, OpenCV 4 with contrib/ArUco, NumPy, screeninfo.

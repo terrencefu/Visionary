@@ -4,6 +4,7 @@ import runpy
 import sys
 
 TOOLS = {
+    "follow-board": "tracking.follow_board",
     "webcam": "calibration.webcam_smoketest",
     "camera-calibration": "calibration.calibrate_camera",
     "aruco": "calibration.aruco_pose_test",
@@ -23,6 +24,7 @@ TOOLS = {
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Assembly copilot calibration tools. Begin with webcam.")
     parser.add_argument("tool", choices=TOOLS)
-    args, remaining = parser.parse_known_args()
+    args = parser.parse_args(sys.argv[1:2])
+    remaining = sys.argv[2:]
     sys.argv = [sys.argv[0], *remaining]
     runpy.run_module(TOOLS[args.tool], run_name="__main__")
