@@ -93,6 +93,29 @@ python main.py perceive --cad Fusion_output --part-id "Plate 1x10 Silver" --anch
 4. The program verifies STL shape and fits metric anchor X/Y/yaw. Inspect the
    green outline, then press **Enter** to accept the anchor.
 
+### Colour-based changes after the first anchor
+
+The first grey engine-block anchor still uses the existing STL registration.
+For subsequent placements, the physical **blue 1x6** and **red 1x10 plates** are
+selected using HSV colour masks of newly added pixels. `Plate 1x10 Silver` stays
+as the exported CAD name but maps to physical red in `PLACEMENT_PART_COLOURS`.
+Unchanged earlier red pieces cannot satisfy the next red step.
+
+Colour selects the expected part's pixels; only that expected CAD mesh is used
+for orientation and metric fitting. **XY, yaw, support height, and metric fit
+checks remain active.** Colour alone does not pass a placement or prove its shape.
+No assembly command change is required. V checks and Enter checks/advances as before.
+The pose still assumes the CAD support height, so colour masking will not fix a
+height/registration error by itself. HSV ranges are starting values for real-light
+verification, not calibrated colour measurements. Overlapping same-colour pieces
+can hide new pixels and still cause a rejection.
+
+The existing `python -m perception.diagnose_placement ...` command automatically
+uses this path for blue/red components. Keep the engine/support assembly present
+in the baseline, then add only the new brick. It saves `4_colour_change.png`, the
+selected region, pose fit, and camera/board data for inspection. Keep projection
+off during the independent diagnostic; the main MVP already blanks it for checks.
+
 ### Every subsequent part
 
 1. The projector goes blank for the **move phase**. Slide/rotate the whole base

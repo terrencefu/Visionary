@@ -74,6 +74,12 @@ def detect_change(before, after, exclude_quads=None, threshold=DIFF_THRESHOLD,
     frames; anything inside them is ignored.
     """
     mask = _blank_quads(_changed_mask(before, after, threshold, search_mask), exclude_quads)
+    return region_from_mask(mask, search_mask, min_area_px, max_change_fraction, merge_gap_px)
+
+
+def region_from_mask(mask, search_mask=None, min_area_px=MIN_CHANGE_AREA_PX,
+                     max_change_fraction=MAX_CHANGE_FRACTION, merge_gap_px=None):
+    """Group a presegmented mask without adding grey/background pixels."""
     frame_area = mask.size if search_mask is None else np.count_nonzero(search_mask)
     if frame_area == 0:
         return None

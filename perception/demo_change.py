@@ -167,11 +167,8 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                                 from perception.aruco import board_drift_px
                                 if board_drift_px(step_pose,measured_pose,K,dist)>config.MAX_BOARD_DRIFT_PX:
                                     raise ValueError('Rig/board pose changed since previous step; reset before checking placement')
-                                changed = detect_change(step_before,measured_frame,
+                                passed,message,debug = assembly.validate_frames(step_before,measured_frame,measured_pose,K,
                                     exclude_quads=marker_quads(measured_pose,K,dist)+(moving.marker_quad() if moving else []),search_mask=mask)
-                                if changed is None:
-                                    raise ValueError('No accepted new part change; cannot advance')
-                                passed,message,debug = assembly.validate(changed,measured_pose,K)
                                 print(message)
                                 cv2.imshow('Placement comparison',debug)
                             if key in (10,13) and passed:
