@@ -101,9 +101,21 @@ def report(update, total_steps):
 def main():
     parser = argparse.ArgumentParser(description="Live expected-part detection and validation.")
     parser.add_argument("--steps", help="JSON file of assembly steps; default is mock CAD data.")
+    parser.add_argument("--change-only", action="store_true", help="Test change detection without part matching.")
+    parser.add_argument("--cad", help="Fusion_output folder for manual V-key STL verification.")
+    parser.add_argument("--part-id", help="Expected CAD component name for --cad.")
     parser.add_argument("--tol-mm", type=float, default=getattr(config, "PLACEMENT_TOLERANCE_MM", 3.0))
     parser.add_argument("--tol-deg", type=float, default=getattr(config, "PLACEMENT_TOLERANCE_DEG", 8.0))
     args = parser.parse_args()
+
+    if args.change_only and args.cad:
+        parser.error('--change-only and --cad are separate test modes')
+    if args.cad and not args.part_id:
+        parser.error('--cad requires --part-id')
+    if args.change_only or args.cad:
+        from perception.demo_change import run
+        run(cad=args.cad, part_id=args.part_id)
+        return
 
     steps = json.loads(open(args.steps).read()) if args.steps else MOCK_STEPS
     machine = AssemblyState([Step.from_dict(s) for s in steps],
