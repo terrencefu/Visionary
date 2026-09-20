@@ -58,8 +58,13 @@ to `--pan-sign -1`. First enable may jump to the Arduino's reported position
 (P1500/T1000 after reset); ensure that position is clear. Add tilt only after
 checking its direction. See the tracking README for the full procedure.
 
-The existing `placement`, `perceive`, and `moving-base` MVP commands do not
-activate servo tracking. Do not launch a second process competing for the same
-camera. `follow-board --project` provides the separate tracking/board-overlay demo,
-not the full assembly workflow. ID 5 is reserved for the moving assembly base;
-`follow-board` currently tracks the fixed multi-marker board (at least 3 markers).
+The current `perceive --cad ... --anchor ...` MVP can optionally control this
+same firmware: append `--servo-port COM5 --servo-pan-sign 1 --servo-tilt-sign -1`
+to the working MVP command, using your tested signs. Press F to centre before
+baseline / between steps. Placement checks hold the servos still. See
+[the integration procedure](../../tracking/README.md#integrating-with-the-current-assembly-mvp).
+
+`placement` and standalone `moving-base` still do not send servo commands.
+Do not run a second camera process alongside the MVP. `follow-board --project`
+remains a separate board-overlay demonstration. ID 5 is reserved for the moving
+assembly base; head control follows the fixed board (at least 3 markers).

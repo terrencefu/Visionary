@@ -51,7 +51,7 @@ The camera and projector move together physically. By default the controller cen
 
 After rigid camera/projector calibration is available, add `--project` to the same command. It uses the existing 3D `board_scene`/`render_scene` and latest board pose to project the board overlay. It blanks during correction, marker loss, pause, or out-of-projector bounds, and waits `SETTLE_SECONDS` after centring before displaying. This is a timed software gate, not measured physical settling. The overlay labels retain the reference fixture IDs 0–3 even when following remapped IDs.
 
-Do not run a second camera/projection process alongside this command. A saved stationary planar homography cannot be reused after head movement; this tool uses the existing 3D rigid transform instead. Relative movement between camera and projector still invalidates that transform. Pan-only mode only centres horizontally; check vertical coverage yourself.
+Do not run a second camera/projection process alongside this command. For assembly steps, use the integrated `perceive` mode below instead. A saved stationary planar homography cannot be reused after head movement; this tool uses the existing 3D rigid transform instead. Relative movement between camera and projector still invalidates that transform. Pan-only mode only centres horizontally; check vertical coverage yourself.
 
 ## Behaviour and limits
 
@@ -78,3 +78,50 @@ python -m tracking.simulate --wrong-sign --output data/tracking_simulation_wrong
 ```
 
 That scenario demonstrates why the physical direction check matters: the board can leave view, after which tracking holds rather than searching. These assumed mechanics cannot prove real-world convergence or projector accuracy. To test alone on hardware, leave the projector off, place the marked board in front of the mounted camera, run preview first, then the small-step pan-only command above. Move the board gently and cover the markers to check loss/recovery. The valid local camera calibration must match the camera actually connected.
+
+## Integrating with the current assembly MVP
+
+The `perceive --cad ... --anchor --base-marker-id ...` workflow now accepts optional
+servo control in its existing camera loop. The firmware remains unchanged.
+Append these options to the team's existing working MVP command:
+
+```text
+--servo-port COM5 --servo-pan-sign 1 --servo-tilt-sign -1
+```
+
+COM5 and the signs are examples; use the connected port and physically checked
+directions. Start with `--servo-pan-only --servo-pan-sign 1` instead of both axes
+for the direction test. Defaults are small 2 us corrections every 0.3 s. Optional
+`--servo-step`, `--servo-interval`, `--servo-aim X Y`, `--servo-pan-limits MIN MAX`
+and `--servo-tilt-limits MIN MAX` tune this integration independently of the
+standalone demo.
+
+A camera/Arduino-only integration test (no CAD or projector required):
+
+```powershell
+python main.py perceive --change-only --servo-port COM5 --servo-pan-sign 1 --servo-pan-only
+```
+
+- Press **F** before the initial baseline to start centring. Wait for centring
+  and the settle interval; then **Space** captures the baseline.
+- Capturing a baseline freezes servo commands during detection/placement. This
+  preserves the before/after comparison. Servo controls do not bypass any CAD
+  position checks or auto-advance the assembly.
+- In the moving-base workflow, the existing between-step MOVE BASE phase permits
+  centring again. Space captures a fresh settled baseline. M cancels a pending
+  placement as before; remove unverified parts before M/rebaselining.
+- F pauses centring at any time. It cannot start motion during a placement phase.
+  In change-only mode, restart the command to return to the pre-baseline centring
+  phase; in assembly mode use the existing move/reset controls.
+- Projection is blank during correction, settling, or lost-board tracking.
+  Baseline/verification/advance keys are ignored while active centring is not
+  ready. Pausing still waits for the last correction's settle interval.
+- No `--servo-port` means no serial connection or servo commands. This option is
+  supported in the CAD and change-only modes, not the old mock HSV demo.
+
+The target remains the fixed board's geometric centre (IDs 0–3), not moving-base
+ID 5. The existing MVP still needs that fixed board for its coordinate frame.
+Continuous head tracking during a pending placement is intentionally disabled;
+use the move phase to reacquire/recentre before capturing the next baseline.
+This integration is software-tested only; real servo directions, response and
+projection alignment remain physical checks.

@@ -109,7 +109,12 @@ def main():
     parser.add_argument('--base-marker-size',type=float,help='Moving marker black-square side in mm')
     parser.add_argument("--tol-mm", type=float, default=getattr(config, "PLACEMENT_TOLERANCE_MM", 3.0))
     parser.add_argument("--tol-deg", type=float, default=getattr(config, "PLACEMENT_TOLERANCE_DEG", 8.0))
+    from tracking.assembly_servo import add_servo_arguments, servo_options
+    add_servo_arguments(parser)
     args = parser.parse_args()
+    servo = servo_options(parser, args)
+    if servo and not (args.change_only or args.cad):
+        parser.error("Servo integration requires --change-only or --cad; the legacy HSV demo is separate.")
 
     if args.change_only and args.cad:
         parser.error('--change-only and --cad are separate test modes')
@@ -124,7 +129,7 @@ def main():
     if args.change_only or args.cad:
         from perception.demo_change import run
         run(cad=args.cad, part_id=args.part_id, anchor=args.anchor,
-            base_marker_id=args.base_marker_id,base_marker_size=args.base_marker_size)
+            base_marker_id=args.base_marker_id,base_marker_size=args.base_marker_size,servo_options=servo)
         return
 
     steps = json.loads(open(args.steps).read()) if args.steps else MOCK_STEPS

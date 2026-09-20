@@ -12,7 +12,8 @@ older fixture descriptions and historical diagnostic reports.
 Run `python main.py follow-board` for a preview without movement. See
 [tracking setup and commands](tracking/README.md) and
 [Arduino upload instructions](hardware/arduino/README.md).
-This separate command controls the pan/tilt; the assembly MVP commands do not.
+The assembly `perceive` command also supports optional `--servo-port` control
+using the same camera loop; [integration procedure](tracking/README.md#integrating-with-the-current-assembly-mvp).
 Physical direction and response checks are still required.
 
 ## Quick start on a new computer
@@ -44,8 +45,8 @@ path is not required on the new computer. Historical reports may contain it.
 
 - External webcam: AC310, originally `CAMERA_INDEX = 0`, RAW **1920 x 1080**.
   Device indices can change on another computer; check `config.py`.
-- Camera and projector must stay rigid relative to each other. No servo command
-  is issued by the current assembly workflow.
+- Camera and projector must stay rigid relative to each other. The assembly
+  workflow sends no servo commands unless `--servo-port` is explicitly enabled.
 - Projector: Windows **Win+P -> Extend**, non-primary **1920 x 1080** display.
   Keep projector scaling at 100%; disable keystone/automatic geometric correction.
   Auto-selection works only with exactly one non-primary display. Otherwise set

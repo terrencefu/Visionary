@@ -45,7 +45,7 @@ def workspace_polygon(pose, K):
                                      np.zeros(5))[0].reshape(-1, 2)).astype(np.int32)
 
 
-def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_size=None):
+def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_size=None, servo_options=None):
     K, dist = load_camera()
     tracker = BoardTracker(K, dist)
     gate = StillnessGate()
@@ -94,11 +94,37 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                 print('MOVING BASE: between steps move the whole base, then Space to arm placement. No adding while moving.')
                 print('M cancels a pending placement: remove any unverified new part BEFORE M/recapturing baseline.')
         camera = stack.enter_context(Camera())
+        servo = None
+        if servo_options:
+            from hardware.servo import ServoLink
+            from tracking.assembly_servo import AssemblyServo
+            settings = dict(servo_options)
+            link = stack.enter_context(ServoLink(settings.pop('port')))
+            servo = AssemblyServo(link, K, dist, **settings)
+            print('SERVO: F starts/pauses centring before baseline and in MOVE BASE phase.')
+            print('Placement baselines freeze servo commands. First enable may move to stored P/T positions.')
+        blank_frame = np.zeros((config.PROJECTOR_SIZE[1], config.PROJECTOR_SIZE[0], 3), np.uint8)
+        def blank_for_servo():
+            if projector is not None:
+                cv2.imshow(projector.name, blank_frame)
+
         while True:
             raw = camera.read()
             pose = tracker.estimate(raw)
             if moving is not None:
                 moving.observe(raw)
+            servo_allowed = (scene is None and baseline is None) or (scene is not None and preparing)
+            if servo and not servo.update(pose, servo_allowed, blank_for_servo):
+                blank_for_servo()
+                gate.reset()
+                show_preview(raw, 'SERVO: ' + servo.status)
+                key = cv2.waitKey(1) & 0xFF
+                if key in (27, ord('q')):
+                    break
+                if key == ord('f'):
+                    servo.toggle(servo_allowed, pose, blank_for_servo)
+                # Never arm a baseline or advance on a frame during correction.
+                continue
             frame = cv2.undistort(raw, K, dist)
             view = frame.copy()
             region = None
@@ -106,7 +132,7 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                 from projection.guidance import render_scene
                 status = assembly.message + ' | V=check Enter=check/next B=reset Q=quit'
                 if moving is not None and (preparing or moving.current is None or moving.invalidated):
-                    projector.black()
+                    blank_for_servo()
                     if preparing:
                         status = assembly.message+' | MOVE BASE ONLY; hands off, Space=arm next placement'
                     elif moving.current is None:
@@ -114,21 +140,25 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                     else:
                         status = 'Base moved during placement: remove unverified part, M=move phase, Space=re-arm'
                 elif pose is None:
-                    projector.black()
+                    blank_for_servo()
                     status = 'ArUco tracking unavailable; projection blank, advancement paused'
                 else:
                     try:
                         cv2.imshow(projector.name, render_scene(scene, pose, calibration))
                     except ValueError as exc:
-                        projector.black()
+                        blank_for_servo()
                         scene = registration = None
                         print(f'Projection stopped: {exc}')
                 show_preview(view,status)
                 key = cv2.waitKey(1) & 0xFF
                 if key in (27, ord('q')):
                     break
+                if servo and key == ord('f'):
+                    servo.toggle(servo_allowed, pose, blank_for_servo)
+                    print(servo.status)
+                    continue
                 if moving is not None and key==ord('m'):
-                    projector.black()
+                    blank_for_servo()
                     preparing = True
                     assembly.checked_index = None
                     moving.begin_move()
@@ -150,7 +180,7 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                         scene = candidate_scene
                         print('BASELINE READY: add only the requested part now. V checks; Enter checks and advances.')
                     except ValueError as exc:
-                        projector.black()
+                        blank_for_servo()
                         print(f'Not armed: {exc}')
                 movable_ready = moving is None or (not preparing and moving.current is not None and not moving.invalidated)
                 if key in (10,13,ord('v'),ord('1'),ord('2')) and scene is not None and pose is not None and movable_ready:
@@ -188,10 +218,10 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                             height_mode = 'max' if key == ord('1') else 'body'
                         scene = assembly.scene(height_mode)
                     except ValueError as exc:
-                        projector.black()
+                        blank_for_servo()
                         print(f'Not advanced: {exc}')
                 if key == ord('b'):
-                    projector.black()
+                    blank_for_servo()
                     scene = registration = None
                     assembly = None
                     baseline = None
@@ -230,6 +260,10 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
             key = cv2.waitKey(1) & 0xFF
             if key in (27, ord("q")):
                 break
+            if servo and key == ord('f'):
+                servo.toggle(servo_allowed, pose, blank_for_servo)
+                print(servo.status)
+                continue
             if key == ord('v') and models is not None:
                 if region is None:
                     print('Verification needs a settled detected change and valid board pose.')
@@ -259,7 +293,7 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                                   f"unshifted overlap={estimate['overlap']:.3f}")
                             print('Green outline uses the plate body deck. Enter confirms and shows plate 2; B rejects.')
                         except ValueError as exc:
-                            projector.black()
+                            blank_for_servo()
                             scene = registration = None
                             print(f'Anchor rejected: {exc}')
             if key == ord(" ") and pose is not None and (moving is None or moving.current is not None):
