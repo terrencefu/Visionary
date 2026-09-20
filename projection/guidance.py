@@ -38,7 +38,8 @@ def render_scene(scene,pose,calibration):
     w,h=config.PROJECTOR_SIZE
     frame=np.zeros((h,w,3),np.uint8)
     def project(xy):
-        uv=board_point_to_projector([*xy,0.],pose.rvec,pose.tvec,*calibration)
+        point = [*xy,0.] if len(xy) == 2 else xy
+        uv=board_point_to_projector(point,pose.rvec,pose.tvec,*calibration)
         if not np.isfinite(uv).all() or np.max(np.abs(uv))>1e7:
             raise ValueError('Invalid projector coordinates.')
         return uv

@@ -1,165 +1,351 @@
-# CAD-guided assembly copilot
+# Visionary — CAD-guided assembly copilot
 
-Hackathon MVP: establish a measured ArUco world frame, calibrate a rigid camera/projector pair, then independently measure where projected guidance lands. Fusion, part perception, and servo control are later integrations.
+Hack the North MVP: a calibrated webcam observes LEGO placement, a calibrated
+projector shows the next target, and an ArUco marker on a movable base allows
+repositioning **between** placement steps. Current handoff: **2026-09-20**.
 
-## Automatic board following (prototype)
+Read this first when continuing on a new computer. This README supersedes
+older fixture descriptions and historical diagnostic reports.
 
-Run `python main.py follow-board` for a preview without movement. USB pan/tilt control and optional live 3D projection are on this branch; see [tracking setup and commands](tracking/README.md). Physical direction and response checks are still required.
+## Automatic board following (prototype branch)
 
-## Current setup
+Run `python main.py follow-board` for a preview without movement. See
+[tracking setup and commands](tracking/README.md) and
+[Arduino upload instructions](hardware/arduino/README.md).
+This separate command controls the pan/tilt; the assembly MVP commands do not.
+Physical direction and response checks are still required.
 
-- Python 3.11, OpenCV 4 with contrib/ArUco, NumPy, screeninfo.
-- Camera index **0**, raw **1920×1080**. The camera is upside down. Geometry always uses raw frames; only the annotated human preview rotates 180°.
-- Projector: Windows **Extend**, **1920×1080**, non-primary monitor. Keep Windows scaling at 100% on the projector and verify the smoke test fills the display.
-- Marker dictionary **DICT_4X4_50**, black-square size **30 mm** (confirmed). All markers have the same physical orientation.
-- Marker centers in `config.py` follow the user's remeasurement: 493 mm top/bottom and 305 mm left/right. IDs 0–3 are `(0,0)`, `(493,0)`, `(0,305)`, `(493,305)` mm respectively. These explicitly supplied coordinates supersede the earlier approximate diagonal reconstruction. Marker 0 is the origin; +X points toward marker 1 and +Y toward the lower row. The user separately confirmed the 30 mm black-square side, excluding the white border.
-- **Flat-board bounds still need measuring.** Set `BOARD_BOUNDS_MM` before projector collection or validation. ArUco pose testing can run without these bounds. Old fixture dimensions and old calibration numbers are not included.
-
-## Environment
-
-A local fresh environment can be created from the repository root:
+## Quick start on a new computer
 
 ```powershell
+git clone https://github.com/terrencefu/Visionary.git
+cd Visionary
 conda env create --file environment.yml
 conda activate hackthenorth
+python main.py webcam --frames 10 --no-preview
+python main.py aruco
+python main.py projector --list
+python main.py projector
 ```
 
-The project uses the named environment `hackthenorth`. On the original development machine it lives at `C:\Users\terre\miniconda3\envs\hackthenorth`; the previous `.conda-env` in the parent folder is retained as a separate environment.
+`environment.yml` creates Python 3.11 and installs `requirements.txt`.
+Alternatively: `conda create -n hackthenorth python=3.11 pip`, activate it, then
+`python -m pip install -r requirements.txt`. Install only **opencv-contrib-python**,
+not additional OpenCV wheels. Run commands from the repository root. For
+subcommand help use e.g. `python main.py perceive --help`.
 
-If the environment already exists, activate it. If Conda is not initialized in your shell, open Anaconda Prompt and run `conda activate hackthenorth`. Alternatively, on the original development machine, call `& "$env:USERPROFILE\miniconda3\envs\hackthenorth\python.exe"` directly instead of `python` below. Do not install another OpenCV package alongside `opencv-contrib-python`.
+Hardware/UI was developed on Windows with DirectShow. Linux/macOS have not been
+physically tested. Close other camera applications before starting a preview.
+The original checkout was
+`C:\Users\terre\OneDrive\Documents\ChatGPT\HackTheNorth\Visionary`; that absolute
+path is not required on the new computer. Historical reports may contain it.
 
-## Run in this order
+### Hardware and calibration portability
 
-Run commands from the repository root. Every step is independent; stop and fix a failed smoke test before proceeding. Press **Esc** to exit preview tools.
+- External webcam: AC310, originally `CAMERA_INDEX = 0`, RAW **1920 x 1080**.
+  Device indices can change on another computer; check `config.py`.
+- Camera and projector must stay rigid relative to each other. No servo command
+  is issued by the current assembly workflow.
+- Projector: Windows **Win+P -> Extend**, non-primary **1920 x 1080** display.
+  Keep projector scaling at 100%; disable keystone/automatic geometric correction.
+  Auto-selection works only with exactly one non-primary display. Otherwise set
+  `PROJECTOR_MONITOR_INDEX` after checking `projector --list`.
+- Preview alone rotates 180 degrees. Never rotate/resize RAW geometry inputs.
+- `camera_calibration_1080p.npz` and `projector_calibration.npz` are included.
+  A computer change alone does not require recalibration if the same devices,
+  lens/focus, resolution, projector settings, and rigid mount are preserved.
+  A different camera, changed focus/zoom, or changed relative mount can invalidate
+  these files even when their software fingerprints still pass. Physically
+  validate before using guidance. Do not automatically overwrite calibration.
+- Current guidance uses **3D camera/projector calibration**, not the saved planar
+  homography. The legacy planar file is included for historical reproducibility.
 
-1. **Webcam:** `python main.py webcam`. A bounded capture check is `python main.py webcam --frames 10 --no-preview`. A resolution mismatch fails instead of silently resizing.
-2. **Camera intrinsics:** `python main.py camera-calibration --square-mm 25`. Measure the actual printed square; 25 mm is only the starting value. Use a **9×6 inner-corner** chessboard. Space captures; vary tilt, distance, and coverage across the image. Aim for 30 sharp views; C solves with at least 15. Saves `camera_calibration_1080p.npz` with `camera_matrix`, `dist_coeffs`, image size, RMS, and per-view errors. Review errors before proceeding; replacing a calibration requires `--overwrite`.
-3. **ArUco detection:** `python main.py aruco --detect-only`. No fixture measurements or intrinsics needed for this mode.
-4. **Board pose:** check `MARKER_CENTERS_MM` in `config.py`, then run `python main.py aruco` after camera intrinsic calibration. Needs at least 3 configured markers and a low corner reprojection error. Measures the black square, excluding the white border. Define +X to marker-right and +Y to marker-bottom; all marker tops face -Y. Centers are in mm. Before projector collection, set `BOARD_BOUNDS_MM` to `(min_x, min_y, max_x, max_y)` of the actual flat surface, not automatically the marker-center rectangle. Axes show X red, Y green, Z blue.
-5. **Second display:** `python main.py projector --list`, then `python main.py projector`. Auto-selects only when exactly one non-primary display is present. B displays black; D displays a green center dot at (960,540). Set `PROJECTOR_MONITOR_INDEX` if needed. Verify exact pixel mapping physically.
-6. **Green-dot detection:** `python main.py dot`. Measures increased green AND green dominance after black/dot settling. Shows the threshold mask, raw camera centroid, and area. Space repeats. Lock camera exposure/white balance/focus through its vendor controls if possible; reject reflections, clipped dots, or unstable exposure before collection.
-7. **Collect projector correspondences:** finish the rigid mount first. Disable auto-keystone/dynamic geometry and keep focus/zoom/settings fixed. Run `python main.py collect --rigid-mount-ready`. Space starts a 5×4 grid in the central 50% of the projector. Hold both rig and board stationary through the grid. Captures outside the board region, overlapping marker ink, with ambiguous blobs, or with board movement are rejected. At least 8 valid points are required to save one `data/pose_*.json` file. Re-run for **6–8 poses**, varying both tilt and depth by moving the whole rigid camera/projector pair relative to the board. Merely sliding a board flat is insufficient. Recheck the surface is flat and fully covers the configured bounds; a camera ray alone cannot prove a dot landed on that plane.
-8. **Correspondence diagnostic:** `python main.py diagnose`. Reports homography residuals for every pose, including rejected RANSAC points in the reported errors. Large errors can indicate bad detections, motion, incorrect geometry, or lens distortion. Move an identified bad pose file out of `data` before solving again.
-9. **Solve:** `python main.py solve`. Calibrates projector intrinsics, computes each `T_pb @ inverse(T_cb)`, reports per-pose rotation/translation consistency, then fits one fixed camera→projector transform across all observations. Refuses insufficient pose diversity or excessive residuals/transform spread. Diagnostic arrays are saved separately, even when quality checks fail. Passing limits saves `projector_calibration.npz`; passing these software limits does **not** establish physical accuracy.
-10. **Physical validation:** `python main.py validate` targets the configured board center, or use `python main.py validate --target X_MM Y_MM` with measured numeric coordinates. Space projects, independently observes the landing point, and reports millimeter error. Results append to `data/world_validation.csv`. Move the whole rig, settle, and repeat the same physical target. Also sample targets around the usable board. Do this before assembly guidance.
+## Physical fixture — current values
 
-11. **Part perception:** `python main.py perceive`. Needs step 2 and step 4 only — it is independent of the projector chain, so it can be demonstrated before calibration is solved. Place one part at a time into a still workspace; the window reports the observed board pose and the correction. `--steps FILE.json` replaces the mock CAD sequence. Measure your real parts into `perception/part_catalog.py` and tune their HSV ranges under venue light first, or nothing will be recognised.
+All lengths are millimetres. Dictionary: **DICT_4X4_50**. Fixed marker black-square
+side: **30 mm**, excluding white margin. Marker tops share the same orientation.
 
-Equivalent modules run with `python -m calibration.webcam_smoketest`, etc. Do not run files directly by path; module execution keeps imports consistent.
+| Fixed marker ID | Center X | Center Y |
+|---|---:|---:|
+| 0 | 0 | 0 |
+| 1 | 303 | 0 |
+| 2 | 0 | 203 |
+| 3 | 303 | 204 |
 
-## ArUco rejection diagnostics
+Preserve the 1 mm asymmetry. **Do not restore the obsolete 493 x 305 mm fixture.**
 
-`python main.py aruco` shows a diagnostic panel beside the rotated preview and logs a report once per second, including rejected frames. It lists every detected ID, configured matches and unknown IDs, known/used marker counts, solvePnP success (or not attempted), mean/maximum/RMS corner reprojection error, the configured RMS threshold, and the exact rejection reason. The original detector settings, `SOLVEPNP_ITERATIVE` call, 2.0 px RMS gate, and positive-depth check are unchanged. Mean and maximum errors are diagnostic values; the gate still uses RMS.
+- `BOARD_BOUNDS_MM = (30, 30, 273, 173)` is the projector calibration region.
+- `DETECTION_WORKSPACE_MM = ((-30,-30),(333,-30),(333,234),(-30,233))`
+  is the separate cardboard detection polygon. The user reported cardboard
+  extending 30 mm beyond the outer marker-center boundaries.
+- Moving base: **ID 5**, **30 mm black square**, attached to a stiff flat sheet.
+  Attach the anchor to that sheet so the marker-to-anchor offset cannot change.
+  Do not duplicate IDs 0-3 on the movable sheet.
+- Move all installed parts together. Two loose plates do not automatically form
+  a rigid assembly; marker tracking cannot detect a part slipping on the sheet.
 
-Per-marker residuals help locate a bad correspondence. Cyan arrows follow each detected marker's decoded canonical corner 0 to corner 1; magenta dots show the model-projected corners and yellow lines show residuals, including rejected poses. All geometric calculations stay in RAW camera coordinates. Only the human preview rotates.
-
-Startup output lists the loaded config/calibration paths, configured centers, 30 mm black-square side, assumed 0-degree physical rotation for each marker, and computed pairwise spacings. The current model uses the user's remeasured 493 mm horizontal and 305 mm vertical spacings. With all four unique known markers visible, a **diagnostic-only** homography fitted to marker centers estimates each printed marker's rotation and side lengths in the board frame. This audit is not used to modify or accept a pose. It depends on the center measurements, lens calibration, and a flat board, so it cannot independently certify the fixture dimensions. All marker rotations are currently modeled as zero; no rotated-marker compensation is applied automatically.
-
-Press **S** to save the current raw frame, annotated preview, and full report under `data/aruco_debug/`. A bounded terminal-only capture and an offline replay are also available:
+## Main demo: moving-base assembly
 
 ```powershell
-python main.py aruco --frames 30 --no-preview --save-debug data/aruco_debug
-python main.py aruco --image data/aruco_debug/raw.png --no-preview
+python main.py perceive --cad Fusion_output --part-id "Plate 1x10 Silver" --anchor --base-marker-id 5 --base-marker-size 30
 ```
 
-Use the saved **raw.png**, not the rotated preview, for replay. The capture saves its final frame; press S interactively to preserve a particular failing frame. The diagnostic folder is ignored by Git. Confirm physical rotations against the cyan corner-direction arrows and remeasure the black square (excluding the white border) before attributing large residuals to calibration quality.
+### Initial anchor
 
-### Independent-marker and 0/1/3 pose comparison
+1. Put the sheet with marker 5 on the fixed board, **without the first plate**.
+   Keep marker 5 and at least three reliable fixed-board markers visible.
+2. Press **Space** to capture a baseline.
+3. Attach the first silver plate, studs up, without shifting the sheet. Remove
+   your hand. Press **V** once a change is detected.
+4. The program verifies STL shape and fits metric anchor X/Y/yaw. Inspect the
+   green outline, then press **Enter** to accept the anchor.
 
-Run `python main.py aruco --diagnose-poses` to add **diagnostic-only** fits alongside the unchanged production pose:
+### Every subsequent part
 
-- Fit each detected marker independently using its four decoded canonical corners, the configured 30 mm side, and the current intrinsics/distortion. Print solver success, RMS and positive-depth/RMS acceptance. The local origin is the marker center, with X right and Y down in its canonical drawing.
-- Fit the complete `[0,1,3]` subset without marker 2. If any of those IDs is missing or duplicated, report unavailable instead of silently choosing different markers. Print the subset RMS and residuals for every visible configured marker, including marker 2 explicitly labeled **HELD OUT**.
-- Compare individual fits with an all-known-marker diagnostic fit and the original production result. Individual RMS below 2 px does not establish accurate depth, scale or camera calibration: each individual fit only constrains four corners.
-- Open a separate **RAW / UNROTATED** window with numbered green detected corners `D0..D3` and magenta projected corners `P0..P3`, linked by residual lines. The ordinary human preview retains its existing 180-degree rotation. The raw view defaults to the 0/1/3 fit; use `--diagnostic-fit individual` or `--diagnostic-fit all` for the other comparisons.
+1. The projector goes blank for the **move phase**. Slide/rotate the whole base
+   if desired, keeping every installed component fixed relative to it.
+2. Lay it flat and remove your hands. Press **Space** to obtain a settled frame,
+   update CAD registration from marker 5, and capture a fresh pre-placement baseline.
+3. Only now add the requested part. Do not move the base during placement.
+4. **V** checks shape, X/Y, and rotation. **Enter** checks again and advances only
+   on a pass. Failures print position and rotation corrections.
+5. Repeat through the four JSON steps; completion blanks projection and exits.
 
-Corner numbers follow the decoded printed marker: `0=TL, 1=TR, 2=BR, 3=BL`, never sorted by screen position. For the user-confirmed same-orientation fixture, all declared rotations default to zero. The terminal/report lists each canonical index's exact board XYZ and detected RAW UV, along with the image-based orientation audit. If a marker's actual printed rotation is known to differ, `--marker-rotation 2=90` declares it **only for diagnostic fits** (repeat for other IDs). Positive angles turn board +X toward +Y. For +90 degrees, canonical corners 0/1/2/3 map to physical board TR/BR/BL/TL. No detector corners are reordered, no rotation is inferred and applied automatically, and the production tracker/configuration is not modified. See [OpenCV's corner-order documentation](https://docs.opencv.org/4.11.0/d5/dae/tutorial_aruco_detection.html) and [planar solvePnP requirements](https://docs.opencv.org/4.9.0/d5/d1f/calib3d_solvePnP.html).
+Even if you do not move between steps, press Space before adding the next part.
+**M** cancels the pending placement and returns to the move phase: remove any
+unverified new part *before* re-baselining, or the new piece will be absorbed into
+the baseline. **B** resets the whole assembly; clear it before a new baseline.
+**Q/Esc** exits. Keys apply to an OpenCV window with keyboard focus.
 
-Press **S** to save the comparison JSON and numbered `correspondence_raw.png` at original resolution, plus `correspondence_panel_raw.png` with the report alongside it. Analyze an existing failing frame without reopening the camera:
+During placement, marker loss pauses projection/checking. More than **3 px**
+maximum ID-5 corner movement invalidates the baseline until an explicit move/
+re-arm cycle. It stays invalid even if the marker returns to its old position.
+The moving-base registration is constrained to a flat board after checking marker
+height within 5 mm and tilt within 15 degrees. This is **flat sliding/yaw support**,
+not arbitrary handheld/tilted assembly verification. Keep fixed markers visible
+in the full workflow; the standalone tracking test needs them only initially.
+
+### Sequence and what is actually verified
+
+The current Fusion plan is:
+
+1. `Plate 1x10 Silver:1` (anchor)
+2. `Plate 1x10 Silver:2`
+3. `2850 Medium Stone Grey Technic Engine Cylinder Head:2`
+4. `389423 Bright Blue Technic Brick 1 x 6 with Holes:1`
+
+Order, dependencies, and target transforms come from `Fusion_output/assembly.json`.
+`assembly/manual_guidance.py` tracks the current step and gates advancement;
+workflow phases currently live in `perception/demo_change.py`. This is a small
+stateful controller, **not yet a generalized declarative state-machine engine**.
+
+Each later check verifies the **current addition**, not all installed components.
+It compares a blank-projector before/after image, verifies the expected STL
+silhouette, fits XY/yaw at the assumed CAD support height, and compares against
+the updated target. It does not independently measure height or confirm hidden
+connections. The code cannot enforce the promise not to add parts during the
+move phase. Stillness detection is not hand recognition: a stationary hand may
+pass that check. Shadows, glare, touching parts, and occlusion can cause uncertainty.
+
+The first two outlines use the physically tested plate body height **3.33 mm**.
+The maximum STL height is **5.18 mm**; it gave an approximately 4 mm backward
+landing offset in user testing. Keys **1/2** compare maximum/body heights for
+those plate previews without refitting anchor XY/yaw.
+
+For later steps, the target's XY bounding envelope is sampled onto the highest
+surfaces of already-accepted CAD meshes (or cardboard where unsupported).
+Height discontinuities are not joined. These are approximate placement cues,
+not extracted mating interfaces. Projector-ray occlusion is not yet checked.
+Raised full-sequence guidance needs continued physical validation.
+
+## Independent tests / older modes
 
 ```powershell
-python main.py aruco --diagnose-poses --image data/aruco_debug/raw.png --no-preview --save-debug data/aruco_pose_comparison
+# Moving marker + one identified anchor; CAMERA OVERLAY ONLY
+python main.py moving-base --marker-id 5 --marker-size 30
+
+# Stage 1 only: any changed object, workspace mask, no STL matching
+python main.py perceive --change-only
+
+# Isolated STL identity test: Space baseline, place object, V compares
+python main.py perceive --cad Fusion_output --part-id "389423 Bright Blue Technic Brick 1 x 6 with Holes"
+
+# Fixed-anchor sequence without moving-base support
+python main.py perceive --cad Fusion_output --part-id "Plate 1x10 Silver" --anchor
+
+# Standalone 3D projection tests
+python main.py board-overlay
+python main.py placement --part-id LEGO-2x4 --center 150 100 --width 32 --height 16 --rotation 0
+python main.py validate
 ```
 
-Interpretation: if individuals pass and the full-board fit fails, investigate the shared planar geometry, physical marker orientation/height, and lens model. If 0/1/3 passes but marker 2's held-out residual is large, that localizes an inconsistency to marker 2 relative to those three. If 0/1/3 also fails, excluding marker 2 is insufficient. These comparisons alone cannot prove cardboard lift is the sole cause. This mode never changes the calibration file, measured fixture geometry, marker size, 2 px threshold, or the set of markers used by the production tracker.
+`python main.py perceive` without CAD options runs the **older HSV/2D-outline
+catalogue demo**, not the current STL workflow. Its `assembly/state_machine.py`
+is a separate controller. Do not assume changes there affect the new CAD loop.
+The old pipeline also contains a +Z camera-side assumption that the newer STL
+renderer explicitly handles differently.
 
-## Shared geometry and data contracts
+The standalone moving-base test was reported working by the user. It binds once,
+then follows marker 5 rather than continuously re-identifying the LEGO. Loss hides
+the overlay; reacquisition preserves the same marker-to-anchor binding. No
+calibration is modified. See [moving-base details](perception/MOVING_BASE.md) and
+[STL/anchor details](perception/STL_TEST.md).
 
-All translations and board coordinates are **mm**. OpenCV rotation vectors are **radians**. Marker corners are top-left, top-right, bottom-right, bottom-left in printed-marker coordinates.
+## Data, geometry, and module map
+
+`Fusion_output/assembly.json`, `Fusion_output/toCV_output.json`, and all three
+STLs under `Fusion_output/meshes/` are included. The manifest filename is
+**toCV_output.json**, not `tocv.json`.
+
+- STL units are mm; meshes are in **component-local** coordinates.
+- Occurrence `position`/`rotation` place a mesh in `fusion_root_assembly`.
+- Some operation `target_position` values refer to a named reference point,
+  not the component origin or silhouette centroid. Do not interchange them.
+- The second plate has component ID `Plate 1x10 Silver__2`; its
+  `fusion_component_name` resolves to the shared `Plate 1x10 Silver` mesh.
+- Exported registration placeholders are not measured physical transforms.
+- Anchor fitting uses centered, upright geometry; CAD registration explicitly
+  accounts for the occurrence and mesh-centering offsets.
 
 ```text
-X_camera = R_cb @ X_board + t_cb
-C_board = -R_cb.T @ t_cb
+X_camera = R_camera_board @ X_board + t_camera_board
 T_projector_board = T_projector_camera @ T_camera_board
+T_marker_CAD = inverse(T_board_marker_initial) @ T_board_CAD_initial
+T_board_CAD_current = T_board_marker_current @ T_marker_CAD
 ```
 
-- `perception.aruco.BoardTracker.estimate(raw_frame)` returns rvec, tvec, R, visible IDs, and corner RMS, or `None` for unreliable pose.
-- `perception.geometry.camera_pixel_to_board(u, v, rvec, tvec, K, dist)` undistorts a raw pixel, transforms its ray into board coordinates, and intersects z=0. Points on elevated parts do **not** satisfy this plane assumption.
-- `projection.world.board_point_to_projector(...)` composes transforms and uses projector distortion to obtain projector pixels.
-- Each collected point saves exact rendered projector UV, raw camera UV, board XYZ, its measured camera rvec/tvec, ArUco RMS, and visible IDs. Each pose includes camera-calibration and fixture fingerprints to prevent mixed datasets.
-- New camera calibration, fixture geometry, resolution, projector geometry settings, or relative mount movement requires reconsidering/recollecting calibration. Settings and physical mount changes cannot be detected automatically from file fingerprints.
+Board X points from marker 0 toward 1; Y points toward the lower row. In the
+current physical setup, above the board is **negative board Z**. The STL renderer
+uses a proper rotation (flipping both Y and Z where needed) to map CAD up to the
+camera-facing normal. Flipping Z alone mirrors chiral geometry. Preview rotation
+never participates in pose, ray intersection, STL rendering, or projection.
+Lengths are mm; OpenCV rvecs are radians; user-facing yaw is degrees. This LEGO
+MVP treats 180-degree yaw symmetry as equivalent.
 
-## Perception: expected-part detection and placement validation
+| Module | Responsibility |
+|---|---|
+| `config.py` | Hardware, measured fixture, bounds, thresholds |
+| `main.py` | CLI routing |
+| `perception/aruco.py` | Fixed board pose and diagnostics |
+| `perception/change_detector.py` | Masked frame differences and stillness |
+| `perception/stl_matcher.py` | STL loading, perspective silhouettes, identity overlap |
+| `perception/anchor.py` | Metric XY/yaw fit, mesh-height inference, CAD registration |
+| `perception/moving_base.py` | Standalone ID-5/anchor tracking test and marker solver |
+| `assembly/base_registration.py` | Flat moving-base transform, marker loss/baseline invalidation |
+| `assembly/manual_guidance.py` | CAD step order, placement checks, receiving-surface guidance |
+| `perception/demo_change.py` | Live CAD/moving-base workflow and controls |
+| `projection/world.py` | Saved 3D calibration loading and XYZ-to-projector mapping |
+| `projection/guidance.py` | Distortion-aware sampled edges; accepts XY or XYZ |
+| `assembly/state_machine.py` | Older catalogue perception state machine, separate path |
+| `assembly/AssemblyGuide/AssemblyGuide.py` | Fusion-host exporter (requires `adsk`) |
+| `assembly/toCV/toCV.py` | Fusion-host STL/manifest export |
+| `hardware/arduino/pan_tilt_servos/` | Firmware; not integrated into the assembly loop |
 
-Answers one constrained question — *we expect part X now; did X appear, where, and is it right?* — never open-set object recognition. `perception.pipeline.detect_and_validate(frame_before, frame_after, expected_part, board_pose, camera_matrix, dist_coeffs)` returns:
+The attempted optical-flow anchor recovery was explicitly scrapped. Do not
+restore its periodic blinking or local feature-search recovery. ArUco base
+tracking is the chosen direction. No host-side pan/tilt integration is required.
 
-```json
-{
-  "detected": true,
-  "correct_part": true,
-  "part_id": "red_l_plate",
-  "observed_pose": {"x_mm": 118.2, "y_mm": 92.5, "z_mm": 0.0, "theta_deg": 17.3},
-  "confidence": 0.91
-}
+## Current acceptance settings
+
+| Check | Current setting |
+|---|---|
+| Fixed board pose | >=3 known markers, positive depth, RMS <=3 px |
+| Projector collector pose | >=3 markers, RMS <=5 px |
+| Placement | <=3 mm XY error, <=8 degrees yaw (modulo 180) |
+| STL identity | overlap >=0.80, >=0.08 advantage over runner-up |
+| Metric anchor fit | unshifted silhouette overlap >=0.80 |
+| Perception stillness | 6 consecutive frames |
+| Existing board drift check | 1.5 px; unchanged |
+| Moving-base armed displacement | >3 px invalidates baseline |
+| Projector solve RMS gate | 4 px |
+| Per-pose rig consistency | 15 mm translation, 2 degrees rotation |
+
+Overlap is a silhouette score, not a probability. `0.787 < 0.80` means identity
+may have passed but metric pose fitting was rejected. Retry/check segmentation;
+do not automatically loosen thresholds or add an arbitrary XY correction.
+
+## Calibration and historical artifacts
+
+Active camera RMS: approximately **0.443699 px**, 30 chessboard views, 9x6 inner
+corners, measured 25 mm squares. Active eight-pose projector solve: projector
+RMS **2.479 px**, fixed-rig RMS **3.121 px**. The user observed camera-measured
+landing errors of **1.15–3.41 mm** at a board-center target across multiple rig
+positions. This is not an independent ruler test or a guarantee on raised parts.
+
+The current grid is **5 columns x 4 rows**, projector u=520–1160, v=470–610.
+Off-board, marker-overlap, ambiguity, pose, and movement rejection remain active.
+For intentional recalibration only:
+
+```powershell
+python main.py camera-calibration --square-mm 25
+python main.py collect --rigid-mount-ready
+python main.py diagnose
+python main.py solve
+python main.py validate
 ```
 
-Pass `expected_pose` as well and `result.error` carries `correct`, `dx_mm`, `dy_mm`, `dtheta_deg`. `result.status` is one of `ok | no_change | not_found | wrong_part | low_confidence | wrong_position | wrong_angle | wrong_position_and_angle`.
+Do not run `solve --overwrite` just because you changed computers. Existing files
+are preserved; explicitly requested overwrites and experimental exports have
+separate CLI controls. Camera/projector signatures catch some mismatches but
+cannot detect physical remounting or changed optics automatically.
 
-```text
-perception/change_detector.py  before/after diff -> changed region. LOCALISATION ONLY.
-perception/part_matcher.py     HsvOutlineMatcher: is this the expected part?
-perception/part_catalog.py     per-part HSV + top-down outline (mm) -- EDIT THIS for real parts
-perception/pose_estimator.py   template-alignment x/y/theta, and the px -> board mm bridge
-perception/validator.py        observed vs CAD target -> the correction to apply
-perception/pipeline.py         detect_and_validate(...), the front door
-assembly/state_machine.py      baseline + stillness + step sequencing
-assembly/demo_perception.py    python main.py perceive
+Legacy planar tools remain selectable:
+
+```powershell
+python main.py planar calibrate --stationary-ready --dot-color magenta --overwrite
+python main.py planar verify-current --stationary-ready --dot-color magenta
 ```
 
-**Conventions, now fixed** (the yaw sign/origin this README previously left open):
+These are not prerequisites for the main assembly demo. Green is the default
+calibration dot; magenta is supported. A planar homography is tied to a stationary
+rig/board relationship. Its historical experimental ~7.973 px result should not
+be confused with the active 3D calibration.
 
-- **`theta_deg`** is the angle of the part's **+x axis in the BOARD frame**, CCW from board +x toward board +y, in `[0, 360)`. It is derived by mapping a direction through the board plane, never by reusing an image-space angle, so the upside-down mount and perspective cannot leak into it. A test asserts the same physical placement reports the same angle with the camera rolled 180°.
-- **`theta_deg = 0`** means the part lies exactly like its `outline_mm` polygon in `part_catalog.py`. The drawing, not the code, defines each part's zero.
-- **`x_mm` / `y_mm`** are the **area centroid of the part silhouette**, not the origin of its outline drawing. **The CAD target pose must use the same reference point.**
-- **Angle errors are folded by `symmetry_deg`.** A 2×4 brick placed end for end is not an error; an asymmetric part placed backwards is a 180° error.
-- **`dx_mm`, `dy_mm`, `dtheta_deg` are the correction still to apply** (`expected - observed`), in board axes. Turning `+X` into a LEFT/RIGHT arrow depends on where the user stands and where the projector is, so that mapping belongs to the projection subsystem, not here.
-- **Undistorted pixels.** Detection and pose run on undistorted frames in the same K, because lens distortion bends a silhouette before its angle is measured and cannot be undone afterwards. Board geometry then uses `perception.geometry.board_point_from_undistorted_pixel`, the sibling of `camera_pixel_to_board`; feeding undistorted pixels to the latter would undistort them twice. Parts are assumed to sit on the base plane z=0.
-- **Marker quads are excluded** from the change search, so markers never become candidate parts.
-- **Call `set_baseline()` at SHOW_NEXT_STEP, before the user reaches in**, and with the projector showing whatever it will show during the step — its light contaminates the camera image. `AssemblyState` re-baselines automatically when a step completes.
+The handoff includes the active NPZ files, the legacy `planar_calibration.json`,
+and local `data/` calibration datasets, diagnostics, logs, validation CSV, and
+camera diagnostic images. Old backup folders are deliberately separate from the
+eight active root-level `data/pose_*.json` files. Do not mix them into a new solve.
+`.gitignore` still excludes newly generated data/NPZ artifacts by default; already
+tracked handoff files are retained. Review intentional new data before force-adding.
 
-Fusion supplies a part ID and CAD target pose; later register CAD to board/world with `T_world_part = T_world_CAD @ T_CAD_part`. `Step.from_dict` already accepts `{"part_id", "target_pose"}` and keeps unknown keys. No Fusion API or servo behavior is implemented here. Later servo sequence: move → settle → reacquire ArUco pose → project; commanded servo angles are not world-pose measurements.
+The earlier 2.824-versus-18.801 fixed-rig discrepancy was reproduced on different
+input selections: the exact first seven post-mount poses gave **2.823796705 px**.
+Reports/manifests under `data/reproduction_*` preserve that investigation. It did
+not establish mount movement as the cause. `calibration/RESULTS.md` describes an
+older fixture/failing capture and is historical, not current setup instructions.
 
-**Known perception limitations.** Same-coloured parts touching each other merge into one blob (→ `low_confidence`). A part that is its own mirror image cannot be flip-detected — `yellow_l_plate` has equal arms and is exactly this case, so prefer chiral outlines with strong concavities. Near-rectangles fit poorly at any angle. Webcam autofocus and auto-exposure drift shift the colours, and autofocus also changes the intrinsics. Perspective shear grows with camera tilt; the alignment assumes a roughly overhead view. **Every HSV range and outline in `part_catalog.py` is a placeholder measured from nominal LEGO geometry, not from your bricks under your light.**
+## Verification and Claude Code handoff
 
-## Verification
+```powershell
+python -m unittest discover -s tests -q
+```
 
-`python -m unittest discover -s tests -v` runs 93 synthetic checks of distorted raw-pixel geometry, upside-down ArUco detection, multi-marker pose, transform composition, green detection, rigid-calibration recovery, rejection of moving-mount/degenerate data, and the whole perception slice — silhouette alignment across the full circle, part pose recovered in board millimetres through the real lens model and the upside-down mount, hand and marker rejection, wrong-part naming, symmetry folding, and step sequencing. It does not replace hardware calibration or physical error measurements.
+Tests cover synthetic geometry, calibration, masks, STL recognition, anchor
+registration, placement rejection, moving-base transforms, and projection.
+They do not prove live performance under new lighting. Handoff verification on 2026-09-20: **182 tests passed** in the full suite
+(23 seconds on the original machine).
 
-Perception is validated **synthetically only**: parts are rendered as flat polygons, projected through the real `camera_calibration_1080p.npz` lens model onto the measured 493×305 mm fixture, and recovered. 135 placements per height (3 parts × 3×3 board positions × 5 angles), camera rolled 180° with a slight tilt:
+Physically reported working: original 3D projection validation, STL/anchor test,
+body-height correction, and standalone moving-base tracking. Full moving-base
+four-step sequencing was implemented and tested synthetically; the user has not
+yet confirmed that entire hardware workflow. Thick/occluded parts remain the main
+risk: the verifier still compares the changed region to an isolated expected
+mesh rather than rendering a fully occlusion-aware assembly image.
 
-| camera height | px/mm | found | position mean / max | angle mean / max |
-|---|---|---|---|---|
-| 400 mm | 2.78 | 135/135 | 0.10 / 0.28 mm | 0.35° / 1.12° |
-| 600 mm | 1.85 | 135/135 | 0.15 / 0.49 mm | 0.55° / 1.87° |
-| 800 mm | 1.39 | 135/135 | 0.21 / 0.62 mm | 0.70° / 2.68° |
-| 900 mm | 1.23 | 135/135 | 0.23 / 0.72 mm | 0.73° / 2.99° |
+Recommended continuation:
 
-About **80 ms** per `detect_and_validate` call at 1080p, roughly a third of it the two `cv2.undistort` calls that `AssemblyState` avoids repeating.
+1. Reproduce the standalone moving-base test and projector smoke test on the new
+   computer without changing calibration.
+2. Run the moving-base sequence above, first with two plates. Verify that moving
+   between steps changes projected targets and that wrong placements do not advance.
+3. Test cylinder-head/blue-brick visibility and raised guidance. Preserve failing
+   frames and scores before changing thresholds.
+4. Improve assembly-aware visibility/segmentation if needed; don't infer full 3D
+   correctness from a silhouette or assume a new baseline proves a placement.
+5. Later extract explicit workflow states from the live loop. Keep the current
+   working commands and raw-frame/coordinate conventions intact.
 
-**Mount the camera between 400 and 900 mm.** Below ~1 px/mm (above ~1100 mm) detection collapses, and it collapses by shape: `green_wedge` — nearly a rectangle — is lost first at 1300 mm, `blue_2x4` at 1500 mm, and the chiral `red_l_plate` still resolves at 0.74 px/mm. That is the concavity argument in `part_catalog.py`, measured. The 82°×52° FOV means the board fits the frame from 400 mm up, so there is no reason to mount high.
-
-Those numbers measure the geometry, not the world. No real webcam frame, no real brick, and no venue lighting has been through this yet. Real accuracy will be set by segmentation quality — HSV tuning, shadow, glare, projector light on the part — not by the alignment, and it will be worse. Measure it on hardware before trusting any of it.
-
-Initial verification on this machine: Python 3.11.16, OpenCV 4.14.0, NumPy 2.4.6; all 10 synthetic tests passed and `pip check` reported no dependency conflicts. Camera index 0 captured 10 raw 1920×1080 frames successfully outside the execution sandbox. Only the primary 1920×1200 laptop display was enumerated. No real intrinsic/projector calibration or physical world-lock validation has been completed yet.
-
-Reference: [OpenCV calibration and transform conventions](https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html).
+User preferences: act directly on simple requests; test substantial one-shot
+changes. Do not silently alter measured geometry, calibration, or thresholds.
+Use the existing 3D calibration rather than replacing it with planar mode. Keep
+movement and adding a part separate. Pan/tilt is intentionally out of scope now.

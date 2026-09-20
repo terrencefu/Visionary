@@ -1,14 +1,16 @@
-"""Part pose in board millimetres, through a real lens and an upside-down camera.
+"""Part pose in board millimetres, through a real lens and an angled camera.
 
-These tests pin the yaw convention the README leaves open:
+These tests pin the conventions the README leaves open:
 
     theta_deg is the angle of the part's +x axis, measured in the BOARD frame,
     CCW from board +x toward board +y, in [0, 360).
 
-and the position convention:
-
-    x_mm / y_mm are the AREA CENTROID of the part silhouette, not its outline
+    x_mm / y_mm are the AREA CENTROID of the part silhouette, not the outline
     origin. A CAD target pose must use the same reference point.
+
+Pose is recovered the way the pipeline does it: rectify the board plane to a
+metric top-down view, then align the catalogue outline there. Matching in raw
+image space is wrong at any camera angle -- see test_camera_fixture.py.
 """
 import unittest
 
@@ -16,58 +18,52 @@ import cv2
 import numpy as np
 
 from perception.geometry import board_point_from_undistorted_pixel, camera_pixel_to_board
-from perception.pose_estimator import (align_outline, board_scale_px_per_mm,
-                                       planar_pose_to_board, polygon_centroid)
-from tests.synthetic import fill_polygon, largest_contour
+from perception.pose_estimator import BoardPlanarPose, align_outline, polygon_centroid
+from perception.rectify import BoardRectifier, local_scale_px_per_mm
+from tests.synthetic import (blank_scene, board_camera, largest_contour,
+                             render_part_on_board_at_height)
 
 STUD = 8.0
 L_CHIRAL = np.array([(0, 0), (6, 0), (6, 2), (2, 2), (2, 4), (0, 4)], float) * STUD
 
-K = np.array([[1500.0, 0, 960.0], [0, 1490.0, 540.0], [0, 0, 1.0]])
+K = np.array([[1110.0, 0, 952.7], [0, 1110.0, 529.7], [0, 0, 1.0]])
 DIST = np.array([0.05, -0.02, 0.001, -0.001, 0.0])
 SHAPE = (1080, 1920)
-BOARD_CENTRE = np.array([125.0, 95.0])
+BOARD_CENTRE = np.array([246.5, 152.5])
+RED_BGR = (40, 40, 210)
+RED_HSV = (np.array([0, 120, 70], np.uint8), np.array([8, 255, 255], np.uint8))
 
 
-def upside_down_camera(tilt=(0.02, -0.03), height_mm=600.0, look_at=BOARD_CENTRE):
-    """Camera ~600 mm above the board, rolled 180 deg (mounted upside down),
-    with a little tilt. `look_at` lands on the optical axis."""
-    rvec = np.array([tilt[0], tilt[1], np.pi])
-    R = cv2.Rodrigues(rvec)[0]
-    tvec = np.array([0.0, 0.0, height_mm]) - R @ np.array([look_at[0], look_at[1], 0.0])
-    return rvec, tvec
+def recover_pose(x_mm, y_mm, theta_deg, rvec, tvec, outline=L_CHIRAL, z_mm=0.0):
+    """Render a part, then measure it back the way the pipeline does."""
+    frame = blank_scene(SHAPE)
+    render_part_on_board_at_height(frame, outline, x_mm, y_mm, theta_deg, 0.0,
+                                   rvec, tvec, K, DIST, RED_BGR, base_mm=z_mm)
+    undistorted = cv2.undistort(frame, K, DIST)
 
-
-def rotate_in_board(points, theta_deg):
-    """Rotate (N,2) board-frame points CCW from +x toward +y."""
-    t = np.radians(theta_deg)
-    c, s = np.cos(t), np.sin(t)
-    return np.asarray(points, float) @ np.array([[c, -s], [s, c]]).T
-
-
-def render_part_on_board(outline_mm, x_mm, y_mm, theta_deg, rvec, tvec, shape=SHAPE):
-    """Project a part lying flat on the board into the distorted camera image,
-    and return its observed contour. The outline's AREA CENTROID is placed at
-    (x_mm, y_mm)."""
-    centred = np.asarray(outline_mm, float) - polygon_centroid(outline_mm)
-    board_xy = rotate_in_board(centred, theta_deg) + np.array([x_mm, y_mm])
-    board_xyz = np.c_[board_xy, np.zeros(len(board_xy))]
-    image_pts = cv2.projectPoints(board_xyz, rvec, tvec, K, DIST)[0].reshape(-1, 2)
-    return largest_contour(fill_polygon(shape, image_pts))
+    rect = BoardRectifier.around(rvec, tvec, K, centre_mm=(x_mm, y_mm),
+                                 radius_mm=70.0, px_per_mm=3.0, z_mm=z_mm)
+    patch = rect.warp(undistorted)
+    contour = largest_contour(cv2.inRange(cv2.cvtColor(patch, cv2.COLOR_BGR2HSV), *RED_HSV))
+    if contour is None:
+        return None
+    pose = align_outline(contour, outline, rect.px_per_mm)
+    x, y = rect.to_board(pose.x_px, pose.y_px)
+    return BoardPlanarPose(float(x), float(y), rect.theta_to_board(pose.theta_deg),
+                           z_mm, pose.score)
 
 
 class UndistortedPixelSiblingTests(unittest.TestCase):
     def test_matches_raw_version_when_there_is_no_distortion(self):
-        rvec, tvec = upside_down_camera()
-        zero = np.zeros(5)
+        rvec, tvec = board_camera(elev_deg=35.0)
 
-        raw = camera_pixel_to_board(1000.0, 600.0, rvec, tvec, K, zero)
+        raw = camera_pixel_to_board(1000.0, 600.0, rvec, tvec, K, np.zeros(5))
         undistorted = board_point_from_undistorted_pixel(1000.0, 600.0, rvec, tvec, K)
 
         np.testing.assert_allclose(undistorted, raw, atol=1e-9)
 
     def test_agrees_with_raw_version_after_undistorting_the_pixel(self):
-        rvec, tvec = upside_down_camera()
+        rvec, tvec = board_camera(elev_deg=35.0)
         truth = np.array([180.0, 40.0, 0.0])
         raw_px = cv2.projectPoints(truth.reshape(1, 3), rvec, tvec, K, DIST)[0].ravel()
         undistorted_px = cv2.undistortPoints(raw_px.reshape(1, 1, 2), K, DIST, P=K).ravel()
@@ -81,83 +77,79 @@ class UndistortedPixelSiblingTests(unittest.TestCase):
     def test_rejects_a_ray_that_never_meets_the_board(self):
         rvec = np.array([0.0, np.pi / 2, 0.0])
         with self.assertRaises(ValueError):
-            board_point_from_undistorted_pixel(960.0, 540.0, rvec, np.array([0.0, 0.0, 500.0]), K)
+            board_point_from_undistorted_pixel(K[0, 2], K[1, 2], rvec,
+                                               np.array([0.0, 0.0, 500.0]), K)
 
 
 class BoardScaleTests(unittest.TestCase):
     def test_scale_matches_a_measured_millimetre(self):
-        rvec, tvec = upside_down_camera()
-        a, b = np.array([125.0, 95.0, 0.0]), np.array([126.0, 95.0, 0.0])
-        projected = cv2.projectPoints(np.array([a, b]), rvec, tvec, K, DIST)[0].reshape(-1, 2)
+        rvec, tvec = board_camera(elev_deg=35.0)
+        a, b = np.array([246.5, 152.5, 0.0]), np.array([247.5, 152.5, 0.0])
+        projected = cv2.projectPoints(np.array([a, b]), rvec, tvec, K, np.zeros(5))[0].reshape(-1, 2)
         expected = float(np.linalg.norm(projected[1] - projected[0]))
 
-        scale = board_scale_px_per_mm(BOARD_CENTRE, rvec, tvec, K, DIST)
+        scale = local_scale_px_per_mm(rvec, tvec, K, BOARD_CENTRE)
 
-        self.assertAlmostEqual(scale, expected, delta=0.05)
-
-    def test_scale_is_about_focal_length_over_height(self):
-        rvec, tvec = upside_down_camera(height_mm=600.0)
-        self.assertAlmostEqual(board_scale_px_per_mm(BOARD_CENTRE, rvec, tvec, K, DIST),
-                               1495.0 / 600.0, delta=0.1)
+        self.assertAlmostEqual(scale, expected, delta=0.15)
 
 
 class PartPoseInBoardTests(unittest.TestCase):
     def setUp(self):
-        self.rvec, self.tvec = upside_down_camera()
-
-    def recover(self, x_mm, y_mm, theta_deg, outline=L_CHIRAL):
-        contour = render_part_on_board(outline, x_mm, y_mm, theta_deg, self.rvec, self.tvec)
-        self.assertIsNotNone(contour, "part did not render inside the frame")
-        scale = board_scale_px_per_mm((x_mm, y_mm), self.rvec, self.tvec, K, DIST)
-        pose_px = align_outline(contour, outline, scale)
-        return planar_pose_to_board(pose_px, self.rvec, self.tvec, K, DIST)
+        self.rvec, self.tvec = board_camera(elev_deg=35.0)
 
     def test_recovers_position_in_millimetres(self):
-        world = self.recover(125.0, 95.0, 0.0)
+        world = recover_pose(246.5, 152.5, 0.0, self.rvec, self.tvec)
 
-        self.assertAlmostEqual(world.x_mm, 125.0, delta=1.0)
-        self.assertAlmostEqual(world.y_mm, 95.0, delta=1.0)
+        self.assertAlmostEqual(world.x_mm, 246.5, delta=1.5)
+        self.assertAlmostEqual(world.y_mm, 152.5, delta=1.5)
         self.assertEqual(world.z_mm, 0.0)
 
     def test_recovers_position_away_from_the_optical_axis(self):
-        world = self.recover(60.0, 150.0, 0.0)
+        world = recover_pose(120.0, 230.0, 0.0, self.rvec, self.tvec)
 
-        self.assertAlmostEqual(world.x_mm, 60.0, delta=1.5)
-        self.assertAlmostEqual(world.y_mm, 150.0, delta=1.5)
+        self.assertAlmostEqual(world.x_mm, 120.0, delta=2.0)
+        self.assertAlmostEqual(world.y_mm, 230.0, delta=2.0)
 
     def test_recovers_angle_across_full_circle(self):
         for truth in (0.0, 35.0, 90.0, 168.0, 244.0, 300.0):
             with self.subTest(theta=truth):
-                world = self.recover(125.0, 95.0, truth)
+                world = recover_pose(246.5, 152.5, truth, self.rvec, self.tvec)
 
                 error = abs((world.theta_deg - truth + 180.0) % 360.0 - 180.0)
-                self.assertLess(error, 3.0, f"got {world.theta_deg:.1f} want {truth}")
+                self.assertLess(error, 4.0, f"got {world.theta_deg:.1f} want {truth}")
 
     def test_positive_theta_turns_board_x_toward_board_y(self):
         """Sign check: the part's +x axis at theta=+40 must have a positive
         board-y component. This is the convention the projector side needs."""
-        world = self.recover(125.0, 95.0, 40.0)
+        world = recover_pose(246.5, 152.5, 40.0, self.rvec, self.tvec)
 
         axis = world.axis_board
         self.assertGreater(axis[0], 0.0)
         self.assertGreater(axis[1], 0.0)
 
-    def test_angle_survives_the_upside_down_mount(self):
-        """Same physical placement, camera rolled by 180 deg, must report the
-        same board angle -- the mount must not leak into the world frame."""
-        upright = np.array([0.02, -0.03, 0.0])
-        R = cv2.Rodrigues(upright)[0]
-        tvec = np.array([0.0, 0.0, 600.0]) - R @ np.array([125.0, 95.0, 0.0])
+    def test_angle_survives_a_change_of_camera_angle(self):
+        """The same physical placement must read the same from any viewpoint --
+        the mount must never leak into the world frame."""
+        for elev in (5.0, 20.0, 35.0, 45.0):
+            with self.subTest(elev=elev):
+                rvec, tvec = board_camera(elev_deg=elev, azim_deg=200.0)
+                world = recover_pose(246.5, 152.5, 55.0, rvec, tvec)
 
-        contour = render_part_on_board(L_CHIRAL, 125.0, 95.0, 55.0, upright, tvec)
-        scale = board_scale_px_per_mm(BOARD_CENTRE, upright, tvec, K, DIST)
-        upright_world = planar_pose_to_board(align_outline(contour, L_CHIRAL, scale),
-                                             upright, tvec, K, DIST)
+                self.assertAlmostEqual(world.theta_deg, 55.0, delta=4.0)
 
-        flipped_world = self.recover(125.0, 95.0, 55.0)
+    def test_angle_survives_a_change_of_camera_azimuth(self):
+        for azim in (0.0, 90.0, 200.0, 315.0):
+            with self.subTest(azim=azim):
+                rvec, tvec = board_camera(elev_deg=35.0, azim_deg=azim)
+                world = recover_pose(246.5, 152.5, 55.0, rvec, tvec)
 
-        self.assertAlmostEqual(upright_world.theta_deg, 55.0, delta=3.0)
-        self.assertAlmostEqual(flipped_world.theta_deg, 55.0, delta=3.0)
+                self.assertAlmostEqual(world.theta_deg, 55.0, delta=4.0)
+
+    def test_a_chiral_part_is_recovered_not_mirrored(self):
+        """The regression that raw-image matching could not pass at all."""
+        world = recover_pose(246.5, 152.5, 20.0, self.rvec, self.tvec)
+
+        self.assertGreater(world.score, 0.85)
 
 
 if __name__ == "__main__":

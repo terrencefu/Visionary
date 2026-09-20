@@ -1,0 +1,102 @@
+{
+  "calibration_sha256": "7eb62eed9e128ebf1edd19c7171faba96d66a2df92b55a48f8fd34d5f555d867",
+  "saved_status": "VALIDATED AT RECORDED POSITION",
+  "timestamp": 1789857789.5903332,
+  "passed": false,
+  "note": "Verification only. Local reference does not authorize guidance or replace saved reference.",
+  "reference_acquisition": [
+    {
+      "frame": 1,
+      "elapsed_s": 0.5160000000032596,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.7409776109893806,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 2,
+      "elapsed_s": 1.0470000000059372,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1278605784410216,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 2
+    },
+    {
+      "frame": 3,
+      "elapsed_s": 1.5780000000086147,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.1227266409240384,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 4,
+      "elapsed_s": 2.0780000000086147,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1134320849151298,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    }
+  ],
+  "reference_requirements": {
+    "marker_ids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "consecutive_frames": 9,
+    "timeout_s": 30.0
+  },
+  "rejection": "Interrupted",
+  "calibration_bytes_unchanged": true
+}

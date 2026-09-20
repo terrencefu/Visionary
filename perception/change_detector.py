@@ -33,17 +33,22 @@ class ChangeRegion:
     mask: np.ndarray
 
 
-def _changed_mask(before, after, threshold=DIFF_THRESHOLD):
+def _changed_mask(before, after, threshold=DIFF_THRESHOLD, search_mask=None):
     if before.shape != after.shape:
         raise ValueError("Before and after frame sizes differ.")
     diff = cv2.absdiff(before, after)
     if diff.ndim == 3:
         diff = diff.max(axis=2)          # a colour swap at equal luma still counts
+    if search_mask is not None:
+        diff = np.where(search_mask != 0, diff, 0).astype(np.uint8)
     diff = cv2.GaussianBlur(diff, (5, 5), 0)
     mask = (diff >= threshold).astype(np.uint8) * 255
     kernel = np.ones((5, 5), np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-    return cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    if search_mask is not None:
+        mask[search_mask == 0] = 0
+    return mask
 
 
 def _blank_quads(mask, quads, pad=MARKER_PAD_PX):
@@ -56,14 +61,17 @@ def _blank_quads(mask, quads, pad=MARKER_PAD_PX):
 
 
 def detect_change(before, after, exclude_quads=None, threshold=DIFF_THRESHOLD,
-                  min_area_px=MIN_CHANGE_AREA_PX, max_change_fraction=MAX_CHANGE_FRACTION):
+                  min_area_px=MIN_CHANGE_AREA_PX, max_change_fraction=MAX_CHANGE_FRACTION,
+                  search_mask=None):
     """Largest plausible newly-changed region, or None.
 
     `exclude_quads` are marker corner quads, in the same pixel space as the
     frames; anything inside them is ignored.
     """
-    mask = _blank_quads(_changed_mask(before, after, threshold), exclude_quads)
-    frame_area = mask.shape[0] * mask.shape[1]
+    mask = _blank_quads(_changed_mask(before, after, threshold, search_mask), exclude_quads)
+    frame_area = mask.size if search_mask is None else np.count_nonzero(search_mask)
+    if frame_area == 0:
+        return None
 
     if np.count_nonzero(mask) > max_change_fraction * frame_area:
         return None                      # a hand, a light change, or the board moved
@@ -84,13 +92,16 @@ def detect_change(before, after, exclude_quads=None, threshold=DIFF_THRESHOLD,
 
 
 def frames_are_still(previous, current, threshold=DIFF_THRESHOLD,
-                     stillness_fraction=STILLNESS_FRACTION):
+                     stillness_fraction=STILLNESS_FRACTION, search_mask=None):
     """Has the scene stopped moving? Cheap enough to run on every raw frame.
 
     Used to wait for the user's hand to leave before anything is measured.
     """
-    mask = _changed_mask(previous, current, threshold)
-    changed = np.count_nonzero(mask) / float(mask.shape[0] * mask.shape[1])
+    mask = _changed_mask(previous, current, threshold, search_mask)
+    area = mask.size if search_mask is None else np.count_nonzero(search_mask)
+    if area == 0:
+        return False
+    changed = np.count_nonzero(mask) / float(area)
     return changed <= stillness_fraction
 
 
@@ -103,12 +114,12 @@ class StillnessGate:
         self.previous = None
         self.still_count = 0
 
-    def update(self, frame):
+    def update(self, frame, search_mask=None):
         if self.previous is None:
             self.previous = frame.copy()
             self.still_count = 0
             return False
-        still = frames_are_still(self.previous, frame)
+        still = frames_are_still(self.previous, frame, search_mask=search_mask)
         self.still_count = self.still_count + 1 if still else 0
         self.previous = frame.copy()
         return self.still_count >= self.required

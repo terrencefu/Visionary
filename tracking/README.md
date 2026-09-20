@@ -11,7 +11,7 @@ python -m pip install -r requirements.txt
 python main.py follow-board
 ```
 
-This opens a **preview only**, with no serial connection or movement. It needs your teammate's `camera_calibration_1080p.npz` and the actual board geometry in `config.py`. Calibration files are ignored by Git and must be copied locally. The current config, not older dimensions in the root README, is authoritative. The green circle is the projected centre of `BOARD_BOUNDS_MM`; the cyan cross is the aim point. Space starts/pauses the simulated controller.
+This opens a **preview only**, with no serial connection or movement. It needs your teammate's `camera_calibration_1080p.npz` and the actual board geometry in `config.py`. Current main includes calibration files. They are usable only for the matching physical camera, lens settings and rigid mount; keep the current measured config. The green circle is the projected centre of `BOARD_BOUNDS_MM`; the cyan cross is the aim point. Space starts/pauses the simulated controller.
 
 Close Arduino Serial Monitor before live control. Keep the immediate-command `hardware/arduino/pan_tilt_servos/pan_tilt_servos.ino` already uploaded; this branch does not change the firmware or restore acceleration. List ports with:
 
@@ -40,10 +40,10 @@ Space pauses (holds last command). Q/Esc exits (holds). **O disables both signal
 The default follows configured IDs 0,1,2,3. For a second board with **the same measured marker positions, size and orientation**, use unique IDs at corresponding locations:
 
 ```sh
-python main.py follow-board --marker-ids 4 5 6 7
+python main.py follow-board --marker-ids 10 11 12 13
 ```
 
-Add the live-control options once verified. The order maps new IDs to the existing 0,1,2,3 positions. Other board IDs are ignored, and the global calibration config is not rewritten. At least three selected markers must be visible. Different board geometry needs a separate measured map; do not assume this option handles it. Duplicate IDs on two visible boards are ambiguous and rejected. This command follows one selected board, not an automatic task-based board switcher.
+Add the live-control options once verified. Main now reserves ID 5 for the moving assembly base; do not reuse it on a second board. This tracker follows the four-marker fixture, not that single moving-base marker. The order maps new IDs to the existing 0,1,2,3 positions. Other board IDs are ignored, and the global calibration config is not rewritten. At least three selected markers must be visible. Different board geometry needs a separate measured map; do not assume this option handles it. Duplicate IDs on two visible boards are ambiguous and rejected. This command follows one selected board, not an automatic task-based board switcher.
 
 ## Projector integration
 

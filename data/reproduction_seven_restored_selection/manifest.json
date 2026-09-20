@@ -1,0 +1,35 @@
+{
+  "inputs": [
+    {
+      "path": "data\\pose_20260919T232154_762078.json",
+      "sha256": "c23e654170c3edd7a395df12c08f2c3a16e44bd535979b8fdf43c3a1cf792919"
+    },
+    {
+      "path": "data\\pose_20260919T232234_972378.json",
+      "sha256": "c4208d4b556741e3249a998e36df1f0738cd47fc2a395bb3dc57a56402340a58"
+    },
+    {
+      "path": "data\\pose_20260919T232340_035368.json",
+      "sha256": "e5a581f6e7d811bfcff08e27243151b9408024c6cf23c52441cf2dd0aef578d7"
+    },
+    {
+      "path": "data\\pose_20260919T232426_539651.json",
+      "sha256": "dd5dd4ca93d6cdb1a814e66286b6a173394b37092fff3c8ea0b8bfed12ff2272"
+    },
+    {
+      "path": "data\\pose_20260919T232516_820268.json",
+      "sha256": "c62a3a202a2be18522c460675dc99f19a4d6fabb56bb6684a0c915b2f266c565"
+    },
+    {
+      "path": "data\\five_pose_exclusions\\pose_20260919T232743_437228.json",
+      "sha256": "d150594182e5a073641340005fb25d13b4b4bc897a2caed8ea95b4b41dab7999"
+    },
+    {
+      "path": "data\\pose_20260919T232815_721001.json",
+      "sha256": "a32f031e03447dda72cc9befa00d1b402b5282e9380e0555875ac8e7eb7a62d1"
+    }
+  ],
+  "opencv": "4.14.0",
+  "fixed_rms": 20.454871116650356,
+  "rms": 5.795640258771968
+}

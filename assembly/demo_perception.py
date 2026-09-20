@@ -48,13 +48,19 @@ def annotate(view, update, tracker, board_pose, total_steps):
         x, y, w, h = result.region.bbox
         cv2.rectangle(view, (x, y), (x + w, y + h), colour, 2)
 
-    if result is not None and result.pose_px is not None:
-        pose = result.pose_px
-        centre = np.array([pose.x_px, pose.y_px])
-        tip = centre + 60.0 * pose.part_axis_px
-        cv2.circle(view, tuple(centre.astype(int)), 5, colour, -1)
-        cv2.arrowedLine(view, tuple(centre.astype(int)), tuple(tip.astype(int)),
-                        colour, 2, tipLength=0.25)
+    if result is not None and result.pose_px is not None and result.rect is not None:
+        # The pose is measured in the rectified board plane; map it back to the
+        # image to draw it, rather than pretending rectified pixels are image ones.
+        rect, pose = result.rect, result.pose_px
+        centre_mm = rect.to_board(pose.x_px, pose.y_px)
+        theta = np.radians(rect.theta_to_board(pose.theta_deg))
+        tip_mm = centre_mm + 25.0 * np.array([np.cos(theta), np.sin(theta)])
+        points = cv2.projectPoints(
+            np.array([[*centre_mm, rect.z_mm], [*tip_mm, rect.z_mm]]),
+            board_pose.rvec, board_pose.tvec, tracker.K, np.zeros(5))[0].reshape(-1, 2)
+        centre, tip = points[0].astype(int), points[1].astype(int)
+        cv2.circle(view, tuple(centre), 5, colour, -1)
+        cv2.arrowedLine(view, tuple(centre), tuple(tip), colour, 2, tipLength=0.25)
 
     lines = [f"[{update.phase.value}] {update.guidance}"]
     if update.step is not None:
@@ -95,9 +101,31 @@ def report(update, total_steps):
 def main():
     parser = argparse.ArgumentParser(description="Live expected-part detection and validation.")
     parser.add_argument("--steps", help="JSON file of assembly steps; default is mock CAD data.")
+    parser.add_argument("--change-only", action="store_true", help="Test change detection without part matching.")
+    parser.add_argument("--cad", help="Fusion_output folder for manual V-key STL verification.")
+    parser.add_argument("--part-id", help="Expected CAD component name for --cad.")
+    parser.add_argument("--anchor", action="store_true", help="Fit first silver plate pose and test projected registration.")
+    parser.add_argument('--base-marker-id',type=int,help='Enable moving-base assembly (e.g. 5)')
+    parser.add_argument('--base-marker-size',type=float,help='Moving marker black-square side in mm')
     parser.add_argument("--tol-mm", type=float, default=getattr(config, "PLACEMENT_TOLERANCE_MM", 3.0))
     parser.add_argument("--tol-deg", type=float, default=getattr(config, "PLACEMENT_TOLERANCE_DEG", 8.0))
     args = parser.parse_args()
+
+    if args.change_only and args.cad:
+        parser.error('--change-only and --cad are separate test modes')
+    if args.cad and not args.part_id:
+        parser.error('--cad requires --part-id')
+    if args.anchor and (not args.cad or args.part_id != 'Plate 1x10 Silver'):
+        parser.error('--anchor requires --cad and --part-id "Plate 1x10 Silver"')
+    if args.base_marker_id is not None and (not args.anchor or args.base_marker_size is None):
+        parser.error('--base-marker-id requires --anchor and --base-marker-size')
+    if args.base_marker_size is not None and args.base_marker_id is None:
+        parser.error('--base-marker-size requires --base-marker-id')
+    if args.change_only or args.cad:
+        from perception.demo_change import run
+        run(cad=args.cad, part_id=args.part_id, anchor=args.anchor,
+            base_marker_id=args.base_marker_id,base_marker_size=args.base_marker_size)
+        return
 
     steps = json.loads(open(args.steps).read()) if args.steps else MOCK_STEPS
     machine = AssemblyState([Step.from_dict(s) for s in steps],

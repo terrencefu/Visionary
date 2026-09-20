@@ -1,0 +1,370 @@
+{
+  "calibration_sha256": "a185ccd40fc557bd657d876a384530e25e2fcbbda3183f65e5675ee160d8e2df",
+  "saved_status": "VALIDATED AT RECORDED POSITION",
+  "timestamp": 1789858289.054118,
+  "passed": false,
+  "note": "Verification only. Local reference does not authorize guidance or replace saved reference.",
+  "reference_acquisition": [
+    {
+      "frame": 1,
+      "elapsed_s": 0.5,
+      "detected_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.2118902398574354,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 2,
+      "elapsed_s": 1.0,
+      "detected_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.2244460483920965,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 2
+    },
+    {
+      "frame": 3,
+      "elapsed_s": 1.5,
+      "detected_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1805292588897682,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 3
+    },
+    {
+      "frame": 4,
+      "elapsed_s": 2.0,
+      "detected_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.210662320258905,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 4
+    },
+    {
+      "frame": 5,
+      "elapsed_s": 2.5159999999887077,
+      "detected_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1821648964673543,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 5
+    },
+    {
+      "frame": 6,
+      "elapsed_s": 3.0469999999913853,
+      "detected_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.2041369916963225,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 6
+    },
+    {
+      "frame": 7,
+      "elapsed_s": 3.577999999994063,
+      "detected_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.2131536374392533,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 7
+    },
+    {
+      "frame": 8,
+      "elapsed_s": 4.10899999999674,
+      "detected_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.2090289721266874,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 8
+    },
+    {
+      "frame": 9,
+      "elapsed_s": 4.640999999988708,
+      "detected_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        2,
+        3,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.185415418230958,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 9,
+      "stable_window": true
+    }
+  ],
+  "reference_requirements": {
+    "marker_ids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "consecutive_frames": 9,
+    "timeout_s": 30.0
+  },
+  "current_window": {
+    "jitter_median_px": 0.0684909382918022,
+    "max_deviation_px": 0.10573187853033791,
+    "rvec": [
+      [
+        0.023941152139721443
+      ],
+      [
+        -1.8643714446861956
+      ],
+      [
+        2.4993914552292473
+      ]
+    ],
+    "tvec": [
+      [
+        149.52961773180175
+      ],
+      [
+        -6.395423371292447
+      ],
+      [
+        604.9392477778918
+      ]
+    ],
+    "object_points": [
+      [
+        -15.0,
+        -15.0,
+        0.0
+      ],
+      [
+        15.0,
+        -15.0,
+        0.0
+      ],
+      [
+        15.0,
+        15.0,
+        0.0
+      ],
+      [
+        -15.0,
+        15.0,
+        0.0
+      ],
+      [
+        288.0,
+        -15.0,
+        0.0
+      ],
+      [
+        318.0,
+        -15.0,
+        0.0
+      ],
+      [
+        318.0,
+        15.0,
+        0.0
+      ],
+      [
+        288.0,
+        15.0,
+        0.0
+      ],
+      [
+        -15.0,
+        188.0,
+        0.0
+      ],
+      [
+        15.0,
+        188.0,
+        0.0
+      ],
+      [
+        15.0,
+        218.0,
+        0.0
+      ],
+      [
+        -15.0,
+        218.0,
+        0.0
+      ],
+      [
+        288.0,
+        189.0,
+        0.0
+      ],
+      [
+        318.0,
+        189.0,
+        0.0
+      ],
+      [
+        318.0,
+        219.0,
+        0.0
+      ],
+      [
+        288.0,
+        219.0,
+        0.0
+      ]
+    ],
+    "marker_ids": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "saved_reference_drift_px": 104.33071462706094,
+  "camera_properties": {
+    "exposure": -7.0,
+    "gain": 0.0,
+    "autofocus": -1.0,
+    "focus": -1.0,
+    "auto_exposure": -1.0
+  },
+  "measurements": [
+    {
+      "target_xy": [
+        124.58655681610107,
+        132.9945643424988
+      ],
+      "error_mm": 64.88192666627488,
+      "measurement": {
+        "projector_uv": [
+          840,
+          538
+        ],
+        "camera_uv": [
+          957.025641025641,
+          477.5460030165912
+        ],
+        "board_xyz": [
+          145.49940338754988,
+          71.57537144478226,
+          0.0
+        ],
+        "rvec": [
+          0.02398121265380311,
+          -1.8643515240340434,
+          2.4993818329257453
+        ],
+        "tvec": [
+          149.54116967666883,
+          -6.391331559267759,
+          604.9620863903018
+        ],
+        "aruco_rms": 1.1904532838417272,
+        "visible_ids": [
+          0,
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "rejection": "No unambiguous green dot."
+    }
+  ],
+  "rms_mm": 64.88192666627488,
+  "max_mm": 64.88192666627488,
+  "limit_mm": 5.0,
+  "calibration_bytes_unchanged": true
+}
