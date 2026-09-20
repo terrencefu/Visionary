@@ -62,6 +62,7 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
     assembly = None
     step_before = None
     step_pose = None
+    step_transform = None
     moving = None
     preparing = False
     if base_marker_id is not None:
@@ -91,7 +92,7 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
             if moving is None:
                 print('Keep the anchor fixed. B blanks and resets. CAD height is assumed; no anchor recovery.')
             if moving is not None:
-                print('MOVING BASE: between steps move the whole base, then Space to arm placement. No adding while moving.')
+                print('MOVING BASE: Space before each addition. Blue/red checks adapt to camera/base motion; settle before V.')
                 print('M cancels a pending placement: remove any unverified new part BEFORE M/recapturing baseline.')
         camera = stack.enter_context(Camera())
         while True:
@@ -104,6 +105,17 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
             region = None
             if scene is not None:
                 from projection.guidance import render_scene
+                if moving is not None and not preparing and moving.current is not None and pose is not None:
+                    try:
+                        assembly.transform = moving.transform(pose)
+                        scene = assembly.scene(height_mode)
+                    except ValueError as exc:
+                        projector.black()
+                        show_preview(view, str(exc))
+                        key = cv2.waitKey(1) & 0xFF
+                        if key in (27, ord('q')):
+                            break
+                        continue
                 status = assembly.message + ' | V=check Enter=check/next B=reset Q=quit'
                 if moving is not None and (preparing or moving.current is None or moving.invalidated):
                     projector.black()
@@ -145,6 +157,7 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                             assembly.transform = previous
                             raise
                         step_before,step_pose = measured_frame.copy(),measured_pose
+                        step_transform = assembly.transform.copy()
                         moving.arm()
                         preparing = False
                         scene = candidate_scene
@@ -153,26 +166,31 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                         projector.black()
                         print(f'Not armed: {exc}')
                 movable_ready = moving is None or (not preparing and moving.current is not None and not moving.invalidated)
+                if key in (10,13,ord('v')) and (pose is None or not movable_ready):
+                    print('Check paused: ' + status)
                 if key in (10,13,ord('v'),ord('1'),ord('2')) and scene is not None and pose is not None and movable_ready:
                     try:
                         if key in (10,13,ord('v')):
                             if assembly.index > 0:
                                 assembly.checked_index = None
                             measured_frame, measured_pose, mask = capture_placement(camera,projector,tracker,K,dist,moving)
-                            if moving is not None and moving.invalidated:
-                                raise ValueError('Base moved during this placement. Remove unverified part, press M, then Space.')
+                            if moving is not None:
+                                assembly.transform = moving.transform(measured_pose)
                             passed = True
                             if assembly.index > 0:
                                 assembly.checked_index = None
-                                from perception.aruco import board_drift_px
-                                if board_drift_px(step_pose,measured_pose,K,dist)>config.MAX_BOARD_DRIFT_PX:
-                                    raise ValueError('Rig/board pose changed since previous step; reset before checking placement')
+                                if assembly.names[assembly.index] not in config.PLACEMENT_PART_COLOURS:
+                                    from perception.aruco import board_drift_px
+                                    if board_drift_px(step_pose,measured_pose,K,dist)>config.MAX_BOARD_DRIFT_PX:
+                                        raise ValueError('Uncoloured placement needs a stationary baseline')
                                 passed,message,debug = assembly.validate_frames(step_before,measured_frame,measured_pose,K,
-                                    exclude_quads=marker_quads(measured_pose,K,dist)+(moving.marker_quad() if moving else []),search_mask=mask)
+                                    exclude_quads=marker_quads(measured_pose,K,dist)+(moving.marker_quad() if moving else []),search_mask=mask,
+                                    before_pose=step_pose,before_transform=step_transform)
                                 print(message)
                                 cv2.imshow('Placement comparison',debug)
                             if key in (10,13) and passed:
                                 step_before,step_pose = measured_frame.copy(),measured_pose
+                                step_transform = assembly.transform.copy()
                                 assembly.advance()
                                 print(assembly.message)
                                 if assembly.complete:
@@ -191,6 +209,8 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                     projector.black()
                     scene = registration = None
                     assembly = None
+                    if moving is not None:
+                        moving.adapt_motion = False
                     baseline = None
                     preparing = False
                     if moving is not None:
@@ -247,6 +267,7 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                             from assembly.manual_guidance import ManualAssembly
                             assembly = ManualAssembly(*registration,cad,heights)
                             if moving is not None:
+                                moving.adapt_motion = True
                                 moving.bind(pose,assembly.transform)
                                 moving.arm()
                             scene = assembly.scene(height_mode)

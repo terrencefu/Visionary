@@ -86,7 +86,10 @@ class ColourPlacementTests(unittest.TestCase):
                 # target comparison and advancement gates are real.
                 with patch('perception.colour_change.expected_pose_seed',return_value=(angle,[],np.zeros_like(after))), \
                      patch('assembly.manual_guidance.verify') as identity:
-                    passed,message,_=machine.validate_frames(before,after,self.pose,self.K)
+                    passed,message,_=machine.validate_frames(before,after,self.pose,self.K,
+                        before_pose=SimpleNamespace(rvec=np.array([.05,0.,.05]),
+                                                    tvec=np.array([-135.,-110.,520.])),
+                        before_transform=machine.transform.copy())
                 identity.assert_not_called()
                 self.assertEqual(passed,expected_pass,message)
                 self.assertEqual(machine.checked_index,index if expected_pass else None)

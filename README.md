@@ -122,7 +122,8 @@ off during the independent diagnostic; the main MVP already blanks it for checks
    if desired, keeping every installed component fixed relative to it.
 2. Lay it flat and remove your hands. Press **Space** to obtain a settled frame,
    update CAD registration from marker 5, and capture a fresh pre-placement baseline.
-3. Only now add the requested part. Do not move the base during placement.
+3. Only now add the requested part. Camera movement and flat base sliding/rotation
+   are compensated for blue/red checks; stop moving and remove hands before **V**.
 4. **V** checks shape, X/Y, and rotation. **Enter** checks again and advances only
    on a pass. Failures print position and rotation corrections.
 5. Repeat through the four JSON steps; completion blanks projection and exits.
@@ -133,9 +134,18 @@ unverified new part *before* re-baselining, or the new piece will be absorbed in
 the baseline. **B** resets the whole assembly; clear it before a new baseline.
 **Q/Esc** exits. Keys apply to an OpenCV window with keyboard focus.
 
-During placement, marker loss pauses projection/checking. More than **3 px**
-maximum ID-5 corner movement invalidates the baseline until an explicit move/
-re-arm cycle. It stays invalid even if the marker returns to its old position.
+During blue/red placement, marker loss pauses projection/checking and reacquisition
+resumes the same baseline. The current fixed-board pose and marker-5 registration
+update the expected CAD position. Previous colour pixels are reprojected over the
+CAD height range, including elevated surfaces, before detecting new colour. Newly
+revealed image borders are excluded. The 1.5 px board drift gate no longer blocks
+these coloured steps; position/angle tolerances are unchanged. Initial engine
+registration and uncoloured diagnostics still need a stationary baseline. Large
+view changes, occlusion, or overlapping same-colour pieces may require removing
+the unverified addition and taking a fresh baseline with M then Space.
+
+This assumes the camera and projector remain rigidly attached, the assembly moves
+as a unit with marker 5, and previously accepted parts remain attached.
 The moving-base registration is constrained to a flat board after checking marker
 height within 5 mm and tilt within 15 degrees. This is **flat sliding/yaw support**,
 not arbitrary handheld/tilted assembly verification. Keep fixed markers visible

@@ -67,15 +67,23 @@ class ManualAssembly:
             self.index += 1
             self.checked_index = None
 
-    def validate_frames(self, before, after, pose, K, *, exclude_quads=None, search_mask=None):
+    def validate_frames(self, before, after, pose, K, *, exclude_quads=None, search_mask=None, before_pose=None, before_transform=None):
         """Later coloured parts use a colour-selected change mask, then metric checks."""
         from perception.colour_change import part_colour, detect_colour_change
         from perception.change_detector import detect_change
         self.checked_index = None
         colour = part_colour(self.names[self.index]) if self.index > 0 else None
         if colour:
+            previous_mask = None
+            if before_pose is not None:
+                from perception.motion_compensation import aligned_colour_history
+                previous_mask, visible = aligned_colour_history(
+                    before, colour, before_pose, pose, K,
+                    self.transform if before_transform is None else before_transform,
+                    self.transform, self.meshes[:self.index+1])
+                search_mask = visible if search_mask is None else search_mask & visible
             region, mask = detect_colour_change(before, after, colour,
-                exclude_quads=exclude_quads, search_mask=search_mask)
+                exclude_quads=exclude_quads, search_mask=search_mask, previous_mask=previous_mask)
             if region is None:
                 debug = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
                 return False, f'Expected a NEW {colour} part; no accepted colour change. Cannot advance.', debug

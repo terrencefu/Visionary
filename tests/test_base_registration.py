@@ -51,6 +51,20 @@ class MovingRegistrationTests(unittest.TestCase):
         controller.arm()
         self.assertFalse(controller.invalidated)
 
+    def test_adaptive_mode_keeps_baseline_after_marker_motion(self):
+        controller = MovingRegistration(5,30,self.K,np.zeros(5))
+        controller.adapt_motion = True
+        import cv2
+        corners = cv2.projectPoints(np.array([[-15.,-15,0],[15,-15,0],[15,15,0],[-15,15,0]]),
+                                   self.pose.rvec,self.pose.tvec,self.K,np.zeros(5))[0].reshape(1,4,2).astype(np.float32)
+        controller.detector = SimpleNamespace(detectMarkers=lambda raw:([corners],np.array([[5]]),[]))
+        controller.observe(None)
+        controller.arm()
+        corners += np.array([60.,0.],np.float32)
+        controller.observe(None)
+        self.assertFalse(controller.invalidated)
+        self.assertIsNotNone(controller.current)
+
     def test_drift_within_tolerance_keeps_baseline_armed(self):
         """Vibration below the configured limit must not invalidate a baseline."""
         controller = MovingRegistration(5,30,self.K,np.zeros(5))

@@ -21,20 +21,23 @@ def colour_mask(frame, colour):
     return mask
 
 
-def detect_colour_change(before, after, colour, *, exclude_quads=None, search_mask=None):
+def detect_colour_change(before, after, colour, *, exclude_quads=None, search_mask=None, previous_mask=None):
     """Return region and candidate mask; unchanged earlier same-colour parts are excluded.
 
-    The ordinary diff is a motion/noise gate, not the silhouette. Colour gates
+    With a reprojected previous_mask, colour novelty replaces the raw pixel
+    diff gate because camera movement changes background pixels too. Otherwise
+    the ordinary diff is a motion/noise gate, not the silhouette. Colour gates
     remove grey engine surfaces and shadows. We never fill holes or bridge gaps
     with invented part pixels. Incomplete/occluded colour can still fail pose fit.
     """
     if before.shape != after.shape:
         raise ValueError('Before and after frame sizes differ.')
-    changed = _blank_quads(_changed_mask(before, after, search_mask=search_mask), exclude_quads)
+    changed = (_blank_quads(_changed_mask(before, after, search_mask=search_mask), exclude_quads)
+               if previous_mask is None else np.full(after.shape[:2], 255, np.uint8))
     area = changed.size if search_mask is None else np.count_nonzero(search_mask)
-    if not area or np.count_nonzero(changed) > MAX_CHANGE_FRACTION * area:
+    if not area or (previous_mask is None and np.count_nonzero(changed) > MAX_CHANGE_FRACTION * area):
         return None, np.zeros(changed.shape, np.uint8)
-    previous = colour_mask(before, colour)
+    previous = colour_mask(before, colour) if previous_mask is None else previous_mask
     current = colour_mask(after, colour)
     # Ignore tiny edge jitter around an already-installed piece of this colour.
     previous = cv2.dilate(previous, np.ones((3, 3), np.uint8))
