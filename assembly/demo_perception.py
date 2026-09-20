@@ -98,13 +98,15 @@ def report(update, total_steps):
         print(f"  correction {correction_text(result.error)}")
 
 
-def main():
+def main(integrated=False):
     parser = argparse.ArgumentParser(description="Live expected-part detection and validation.")
     parser.add_argument("--steps", help="JSON file of assembly steps; default is mock CAD data.")
     parser.add_argument("--change-only", action="store_true", help="Test change detection without part matching.")
-    parser.add_argument("--cad", help="Fusion_output folder for manual V-key STL verification.")
+    parser.add_argument("--cad", required=integrated, help="Folder containing assembly.json, toCV_output.json and meshes.")
     parser.add_argument("--part-id", help="Expected CAD component name for --cad.")
-    parser.add_argument("--anchor", action="store_true", help="Fit first silver plate pose and test projected registration.")
+    parser.add_argument("--anchor", action="store_true", default=integrated, help="Register the first planned CAD part and guide the assembly.")
+    parser.add_argument('--require-cad-colours',action='store_true',default=integrated)
+    parser.add_argument('--check-only',action='store_true',help='Validate CAD, colours and calibration without opening hardware.')
     parser.add_argument('--base-marker-id',type=int,help='Enable moving-base assembly (e.g. 5)')
     parser.add_argument('--base-marker-size',type=float,help='Moving marker black-square side in mm')
     parser.add_argument("--tol-mm", type=float, default=getattr(config, "PLACEMENT_TOLERANCE_MM", 3.0))
@@ -113,7 +115,7 @@ def main():
 
     if args.change_only and args.cad:
         parser.error('--change-only and --cad are separate test modes')
-    if args.cad and not args.part_id:
+    if args.cad and not args.part_id and not args.anchor:
         parser.error('--cad requires --part-id')
     if args.anchor:
         if not args.cad:
@@ -124,6 +126,8 @@ def main():
             expected_anchor = anchor_component_name(args.cad)
         except (OSError, KeyError, ValueError, StopIteration) as exc:
             parser.error(f'Cannot read the anchor component from {args.cad}: {exc}')
+        if args.part_id is None:
+            args.part_id = expected_anchor
         if args.part_id != expected_anchor:
             parser.error(f'--anchor requires --part-id "{expected_anchor}" '
                          f'(the first part this CAD plan places)')
@@ -131,10 +135,33 @@ def main():
         parser.error('--base-marker-id requires --anchor and --base-marker-size')
     if args.base_marker_size is not None and args.base_marker_id is None:
         parser.error('--base-marker-size requires --base-marker-id')
+    if args.check_only and not args.anchor:
+        parser.error('--check-only requires --anchor and --cad (or use assemble)')
+    if args.anchor:
+        from pathlib import Path
+        from assembly.manual_guidance import ManualAssembly
+        from perception.cad_colour import colour_label
+        from projection.world import load_projector
+        data=json.loads((Path(args.cad)/'assembly.json').read_text())
+        if args.require_cad_colours and not np.allclose(data['assembly'].get('assembly_axis',[0,0,1]),[0,0,1]):
+            raise ValueError('This flat-base workflow requires CAD assembly up to be root +Z')
+        plan=ManualAssembly(data,np.eye(4),args.cad,{},strict_colours=args.require_cad_colours)
+        load_camera(); load_projector()
+        if args.base_marker_id is not None:
+            from assembly.base_registration import MovingRegistration
+            MovingRegistration(args.base_marker_id,args.base_marker_size,*load_camera())
+        print(f'CAD preflight: {len(plan.operations)} placements; anchor={args.part_id}')
+        for i,(op,colour) in enumerate(zip(plan.operations,plan.colours)):
+            print(f'  {i+1}. {op["part"]}: {colour_label(colour)}'
+                  + (' [legacy colour settings]' if not isinstance(colour,dict) else ' [CAD colour]'))
+        if args.check_only:
+            print('Preflight passed. No camera, projector, or servos opened.')
+            return
     if args.change_only or args.cad:
         from perception.demo_change import run
         run(cad=args.cad, part_id=args.part_id, anchor=args.anchor,
-            base_marker_id=args.base_marker_id,base_marker_size=args.base_marker_size)
+            base_marker_id=args.base_marker_id,base_marker_size=args.base_marker_size,
+            strict_colours=args.require_cad_colours)
         return
 
     steps = json.loads(open(args.steps).read()) if args.steps else MOCK_STEPS

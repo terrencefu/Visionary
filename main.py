@@ -17,6 +17,7 @@ TOOLS = {
     "placement": "projection.placement",
     "board-overlay": "projection.guidance",
     "perceive": "assembly.demo_perception",
+    "assemble": "assembly.demo_assembly",
     "moving-base": "perception.moving_base",
 }
 

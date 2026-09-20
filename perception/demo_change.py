@@ -51,7 +51,7 @@ def workspace_polygon(pose, K):
                                      np.zeros(5))[0].reshape(-1, 2)).astype(np.int32)
 
 
-def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_size=None):
+def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_size=None, strict_colours=False):
     K, dist = load_camera()
     tracker = BoardTracker(K, dist)
     gate = StillnessGate()
@@ -80,6 +80,12 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
         if part_id not in models:
             raise ValueError(f'Choose --part-id from: {list(models)}')
         if anchor:
+            import json
+            from pathlib import Path
+            from assembly.manual_guidance import ManualAssembly
+            initial_plan = ManualAssembly(json.loads((Path(cad)/'assembly.json').read_text()),
+                                          np.eye(4),cad,{},strict_colours=strict_colours)
+            models[part_id] = initial_plan.part_models[0]
             from perception.anchor import plate_surface_heights
             heights = plate_surface_heights(models[part_id])
             print(f"Height test: 1 = STL maximum {heights['max']:.2f} mm; "
@@ -186,7 +192,7 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                             passed = True
                             if assembly.index > 0:
                                 assembly.checked_index = None
-                                if assembly.names[assembly.index] not in config.PLACEMENT_PART_COLOURS:
+                                if assembly.colours[assembly.index] is None:
                                     from perception.aruco import board_drift_px
                                     if board_drift_px(step_pose,measured_pose,K,dist)>config.MAX_BOARD_DRIFT_PX:
                                         raise ValueError('Uncoloured placement needs a stationary baseline')
@@ -270,17 +276,17 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                         try:
                             frame,pose,mask = capture_placement(camera,projector,tracker,K,dist,moving)
                         except ValueError as exc:
-                            print(f'Engine capture paused: {exc}', flush=True)
+                            print(f'Anchor capture paused: {exc}', flush=True)
                             continue
                         region = detect_change(baseline,frame,
                             exclude_quads=marker_quads(pose,K,dist)+(moving.marker_quad() if moving else []),
                             search_mask=mask)
                         if region is None:
-                            print('No settled engine change in clean capture; remove hand and retry V.', flush=True)
+                            print('No settled anchor change in clean capture; remove hand and retry V.', flush=True)
                             continue
                     from perception.stl_matcher import verify
                     print('Comparing STL silhouettes; keep the rig and object stationary...')
-                    result, scores, debug = run_check(frame,"Checking engine shape",verify,models,part_id,region,pose,K)
+                    result, scores, debug = run_check(frame,"Checking anchor shape",verify,models,part_id,region,pose,K)
                     print(f'{result} (visible shape only; not assembly placement validation)')
                     for name, score, yaw in scores:
                         print(f'  {name}: overlap={score:.3f}, sampled yaw={yaw:.0f} deg')
@@ -288,16 +294,16 @@ def run(cad=None, part_id=None, anchor=False, base_marker_id=None, base_marker_s
                     if anchor and result == 'CORRECT SHAPE':
                         from perception.anchor import estimate_anchor, register_cad
                         try:
-                            estimate = run_check(frame,'Fitting engine position',estimate_anchor,models[part_id],region,pose,K,scores[0][2])
+                            estimate = run_check(frame,'Fitting anchor position',estimate_anchor,models[part_id],region,pose,K,scores[0][2])
                             registration = register_cad(cad, part_id, estimate, pose)
                             height_mode = 'body'
                             from assembly.manual_guidance import ManualAssembly
-                            assembly = ManualAssembly(*registration,cad,heights)
+                            assembly = ManualAssembly(*registration,cad,heights,strict_colours=strict_colours)
                             if moving is not None:
                                 moving.adapt_motion = True
                                 moving.bind(pose,assembly.transform)
                                 moving.arm()
-                            scene = run_check(frame,"Preparing engine guidance",assembly.scene,height_mode)
+                            scene = run_check(frame,"Preparing anchor guidance",assembly.scene,height_mode)
                             print(assembly.message)
                             print(f"ANCHOR: center XY={estimate['xy_mm']} mm; yaw={estimate['yaw_deg']:.2f} deg; "
                                   f"unshifted overlap={estimate['overlap']:.3f}")

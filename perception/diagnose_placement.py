@@ -51,10 +51,18 @@ def run(cad, part_id, base_z=0.0, camera_index=None):
     baseline = None
     baseline_pose = None
     report = {'part_id': part_id, 'base_z': base_z}
-    colour = part_colour(part_id)
+    from pathlib import Path
+    from perception.cad_colour import resolve_colour, colour_label
+    data=json.loads((Path(cad)/'assembly.json').read_text())
+    definitions={c['id']:c for c in data['components']}
+    profiles=[resolve_colour(p,definitions[p['component']]) for p in data['parts']
+              if definitions[p['component']].get('fusion_component_name',p['component'])==part_id]
+    if profiles and any(p!=profiles[0] for p in profiles):
+        raise ValueError('This component has differently coloured occurrences; use the assemble workflow to select the planned instance')
+    colour = profiles[0] if profiles else part_colour(part_id)
     print('Keep the supporting assembly in place WITHOUT the new part; Space captures baseline. Q/Esc exits.')
     if colour:
-        print(f'Expected colour: {colour}. Colour selects the new pixels; CAD still fits XY/yaw.')
+        print(f'Expected colour: {colour_label(colour)}. Colour selects the new pixels; CAD still fits XY/yaw.')
     with Camera() as camera:
         while True:
             raw = camera.read()
@@ -127,7 +135,7 @@ def run(cad, part_id, base_z=0.0, camera_index=None):
                     max(1, np.count_nonzero(raw_mask)), 3)
                 if colour:
                     seed, scores, debug = expected_pose_seed(models[part_id], part_id, region, pose, K, base_z)
-                    status = f'NEW {colour.upper()} PIXELS DETECTED - fitting expected CAD pose'
+                    status = f'NEW {colour_label(colour)} PIXELS DETECTED - fitting expected CAD pose'
                 else:
                     status, scores, debug = verify(models, part_id, region, pose, K, base_z=base_z)
                     seed = scores[0][2]

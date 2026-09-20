@@ -107,7 +107,7 @@ def plate_surface_heights(mesh):
     area = np.abs(np.cross(mesh[:,1]-mesh[:,0], mesh[:,2]-mesh[:,0])[:,2]) / 2
     candidates = [h for h in np.unique(heights[flat]) if low+0.1 < h < high-0.1]
     if not candidates:
-        raise ValueError('No distinct body deck found in STL; cannot run height comparison')
+        return {'max':float(high-low),'body':float(high-low)}
     body = max(candidates, key=lambda h: area[flat & (heights == h)].sum())
     return {'max': float(high-low), 'body': float(body-low)}
 

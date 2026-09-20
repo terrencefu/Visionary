@@ -65,6 +65,19 @@ STL_MATCH_MARGIN = 0.08
 # Visible-assembly placement hypotheses only; independent of STL identity.
 # Minimum score advantage over a competing correct/displaced hypothesis.
 PLACEMENT_AMBIGUITY_MARGIN = 0.005  # MVP: allow near-tied hypotheses; confirm with physical offset tests.
+# Generic CAD RGB -> camera HSV starting bands, independent of part names.
+CAD_COLOUR_HUE_TOLERANCE = 15
+CAD_COLOUR_MIN_SATURATION = 90
+CAD_COLOUR_MIN_VALUE = 45
+CAD_COLOUR_NEUTRAL_SATURATION = 65
+CAD_COLOUR_BLACK_VALUE = 70
+CAD_COLOUR_WHITE_VALUE = 180
+CAD_COLOUR_MIN_DOMINANCE = 0.85
+ASSEMBLY_SEARCH_XY_MM = 10.0
+ASSEMBLY_SEARCH_YAW_DEG = 30.0
+ASSEMBLY_MIN_VISIBLE_PIXELS = 40
+ASSEMBLY_MIN_VISIBLE_FRACTION = 0.25
+ASSEMBLY_MIN_NEW_SUPPORT = 0.15
 # Anchor fitting measures METRIC POSE quality, not identity: there is no
 # runner-up to compare against, and a weak fit feeds bad mm straight into the
 # corrections and the projected outline. It does not follow the identity floor.

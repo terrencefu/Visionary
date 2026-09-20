@@ -77,7 +77,57 @@ Preserve the 1 mm asymmetry. **Do not restore the obsolete 493 x 305 mm fixture.
 - Move all installed parts together. Two loose plates do not automatically form
   a rigid assembly; marker tracking cannot detect a part slipping on the sheet.
 
-## Main demo: moving-base assembly
+## Integrated CAD pipeline
+
+1. Run the updated AssemblyGuide exporter inside Fusion to produce `assembly.json`
+   with a plan, occurrence transforms, and `color` fields. Assign appearances that
+   match the real pieces. Run the toCV exporter for the same design to produce
+   `toCV_output.json` and its referenced component-local STL meshes.
+2. Place the exports together in one folder. Do not mix exports from different
+   design revisions. The checked-in export at integration time had no colour
+   fields, so it needs re-exporting before strict mode can start.
+3. Check the inputs and existing calibration without opening hardware:
+
+```powershell
+python main.py assemble --cad Fusion_output --check-only
+```
+
+4. Run the tracked assembly:
+
+```powershell
+python main.py assemble --cad Fusion_output --base-marker-id 5 --base-marker-size 30
+```
+
+The first planned part is selected as the anchor automatically; no component name
+is required on the command line. Sequence, dependencies, geometry, occurrence
+orientation, and colours come from CAD. Part colour overrides component colour.
+Repeated instances may have different colours and orientations. The current
+3D camera/projector calibration, fixture, and moving-base transform are reused.
+
+Space captures the initial empty-base baseline. Place the first planned part,
+press V to register it, inspect the outline, and press Enter to confirm. Later
+steps use the accepted Enter frame automatically: add the next requested part,
+remove hands, V checks, Enter rechecks and advances only on a pass. M then Space
+is recovery; B resets. No servo motion is issued.
+
+RGB colours are converted to generic camera HSV bands in `perception/cad_colour.py`.
+Hue wrap and neutral/black/white colours are supported. `CAD_COLOUR_*` settings
+control the starting bands; actual lighting can require tuning. Installed surfaces
+are classified against the current target's colour band for visibility comparison.
+No LEGO-name lookup is used by strict `assemble`. Legacy `perceive --cad --anchor`
+can still load old exports without colour fields and labels its fallback in the
+startup report. An explicitly invalid CAD colour never silently falls back.
+
+Strict mode rejects missing, textured/unavailable, or insufficiently dominant
+mixed colours. It validates mesh references/units, operation dependencies and
+occurrence transforms. Current scope is rigid assemblies resting on a tracked
+flat base, CAD root +Z up, one new part at a time, and CAD-assumed height. It is
+not general six-degree-of-freedom object recognition or hidden-connection validation.
+`ASSEMBLY_SEARCH_*`, `ASSEMBLY_MIN_*`, placement tolerances, and the ambiguity margin
+are shared configuration, not per-component rules. Saved checks include the colour
+profiles so replay does not depend on a later re-export or renamed components.
+
+## Legacy demo: moving-base assembly
 
 ```powershell
 python main.py perceive --cad Fusion_output --part-id "2850 Medium Stone Grey Technic Engine Cylinder Head" --anchor --base-marker-id 5 --base-marker-size 30
@@ -292,8 +342,9 @@ group. Mixed appearances remain listed separately; textures, unknown colours,
 and ambiguous shader properties are flagged rather than inferred from LEGO names.
 These are CAD appearance colours, not calibrated camera HSV thresholds. Assign
 the actual physical colours in Fusion (e.g. red plates even if their names say
-Silver). Existing geometry/plan fields are unchanged, and the current perception
-colour mapping does not consume these new fields automatically yet.
+Silver). Existing geometry/plan fields are unchanged. The integrated `assemble`
+command consumes these fields automatically; older exports can still use the
+explicitly labelled legacy fallback through `perceive`.
 
 API references: [Occurrence appearance](https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/fusion_Occurrence.htm),
 [face appearance](https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/fusion_BRepFace_appearance.htm),

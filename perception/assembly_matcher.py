@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import config
 from perception.colour_change import colour_mask, part_colour
+from perception.cad_colour import matches_colour, colour_label
 
 
 def depth_image(triangles, pose, K, shape):
@@ -64,10 +65,11 @@ def check_placement(assembly, frame, region, pose, K, colour, search_mask=None):
     crop_K = np.array([[scale,0,-scale*x0],[0,scale,-scale*y0],[0,0,1]])@K
     installed = np.full(observed.shape,np.inf,np.float32)
     installed_colour = np.zeros(observed.shape,bool)
-    for name,part in zip(assembly.names[:index],assembly.meshes[:index]):
+    profiles = getattr(assembly,'colours',[part_colour(name) for name in assembly.names])
+    for profile,part in zip(profiles[:index],assembly.meshes[:index]):
         z = depth_image(part@T[:3,:3].T+T[:3,3],pose,crop_K,observed.shape)
         nearer = z<installed
-        installed_colour[nearer] = part_colour(name)==colour
+        installed_colour[nearer] = matches_colour(profile,colour)
         installed = np.minimum(installed,z)
     # Score over a fixed neighbourhood, so a candidate cannot win by hiding
     # troublesome observed pixels or shrinking its comparison window.
@@ -92,8 +94,9 @@ def check_placement(assembly, frame, region, pose, K, colour, search_mask=None):
         visible_count = np.count_nonzero(visible)
         recall = np.count_nonzero(visible & observed)/max(1,visible_count)
         new_support = np.count_nonzero(visible & novelty)/max(1,visible_count)
-        enough = (visible_count>=40 and visible_count/max(1,np.count_nonzero(full))>=.25
-                  and new_support>=.15)
+        enough = (visible_count>=config.ASSEMBLY_MIN_VISIBLE_PIXELS
+                  and visible_count/max(1,np.count_nonzero(full))>=config.ASSEMBLY_MIN_VISIBLE_FRACTION
+                  and new_support>=config.ASSEMBLY_MIN_NEW_SUPPORT)
         result = dict(offset=list(key),score=float(score),visible_pixels=int(visible_count),
                       visible_fraction=float(visible_count/max(1,np.count_nonzero(full))),
                       colour_coverage=float(recall),new_support=float(new_support),enough_visibility=bool(enough))
@@ -102,17 +105,21 @@ def check_placement(assembly, frame, region, pose, K, colour, search_mask=None):
     expected = evaluate((0,0,0))
     # Deterministic local search. Far-away or boundary winners are uncertain,
     # not a claim to have recovered an arbitrary global part pose.
-    for axis,steps in ((0,(-8,-4,4,8)),(1,(-8,-4,4,8)),(2,(-24,-12,12,24))):
+    xy_limit,angle_limit=config.ASSEMBLY_SEARCH_XY_MM,config.ASSEMBLY_SEARCH_YAW_DEG
+    if not np.isfinite([xy_limit,angle_limit]).all() or min(xy_limit,angle_limit)<=0:
+        raise ValueError('Assembly search limits must be finite and positive')
+    for axis,limit in enumerate((xy_limit,xy_limit,angle_limit)):
+        steps=[fraction*limit for fraction in (-.8,-.4,.4,.8)]
         for step in steps:
             params = [0,0,0]; params[axis]=step; evaluate(params)
     best = max(cache.values(),key=lambda r:r['score'])
-    for mm,deg in ((2,6),(1,3)):
+    for mm,deg in ((xy_limit*.2,angle_limit*.2),(xy_limit*.1,angle_limit*.1)):
         for _ in range(2):
             start = best
             for axis,step in enumerate((mm,mm,deg)):
                 for sign in (-1,1):
                     params = list(start['offset']); params[axis]+=sign*step
-                    if abs(params[0])<=10 and abs(params[1])<=10 and abs(params[2])<=30:
+                    if abs(params[0])<=xy_limit and abs(params[1])<=xy_limit and abs(params[2])<=angle_limit:
                         candidate = evaluate(params)
                         if candidate['score']>best['score']:
                             best = candidate
@@ -130,7 +137,7 @@ def check_placement(assembly, frame, region, pose, K, colour, search_mask=None):
         raise ValueError('PLACEMENT_AMBIGUITY_MARGIN must be finite and between 0 and 1')
     gap = best['score']-max(r['score'] for r in alternatives) if alternatives else None
     ambiguous = gap is not None and gap<margin
-    boundary = max(abs(best['offset'][0]),abs(best['offset'][1]))>=10 or abs(best['offset'][2])>=30
+    boundary = max(abs(best['offset'][0]),abs(best['offset'][1]))>=xy_limit or abs(best['offset'][2])>=angle_limit
     passed = bool(strong and not outside(best) and not ambiguous and not boundary)
     status = 'PLACEMENT OK (visible evidence)' if passed else 'INSUFFICIENT EVIDENCE'
     if strong and outside(best) and not ambiguous and not boundary:
@@ -139,7 +146,7 @@ def check_placement(assembly, frame, region, pose, K, colour, search_mask=None):
     gap_text = f'{gap:.3f}' if gap is not None else 'n/a'
     message = (f'{status}: expected score={expected["score"]:.3f}; best={best["score"]:.3f}; '
                f'visible={best["visible_fraction"]:.0%}; new support={best["new_support"]:.0%}; '
-               f'detected colour={colour}; ambiguity margin={margin:.3f}; '
+               f'detected colour={colour_label(colour)}; ambiguity margin={margin:.3f}; '
                f'gap={gap_text}')
     if status=='ADJUST PLACEMENT':
         message += f'; correction X={-dx:+.2f}, Y={-dy:+.2f} mm, yaw={-angle:+.1f} deg'
@@ -159,6 +166,7 @@ def check_placement(assembly, frame, region, pose, K, colour, search_mask=None):
     check = dict(component=assembly.names[index],part=assembly.operations[index]['part'],step_index=index,
                  expected_xyz=center.tolist(),expected_yaw=yaw,initial_yaw=yaw,
                  cad_to_board=T.tolist(),colour_verified=colour,method='assembly_visible_hypotheses',
+                 assembly_colours=profiles,
                  expected_hypothesis=expected,best_hypothesis=best,hypotheses=list(cache.values()),
                  ambiguity_margin=float(margin),ambiguity_gap=gap,
                  uncertainty_reasons=reasons,scores=[],fit_rejection=None if passed else message)

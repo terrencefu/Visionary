@@ -16,7 +16,8 @@ def colour_mask(frame, colour):
         raise ValueError('Colour detection needs uint8 BGR frames.')
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     mask = np.zeros(frame.shape[:2], np.uint8)
-    for low, high in config.PLACEMENT_COLOUR_HSV[colour]:
+    ranges = colour['hsv_ranges'] if isinstance(colour,dict) else config.PLACEMENT_COLOUR_HSV[colour]
+    for low, high in ranges:
         mask |= cv2.inRange(hsv, np.array(low, np.uint8), np.array(high, np.uint8))
     return mask
 

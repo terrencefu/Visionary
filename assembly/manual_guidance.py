@@ -9,7 +9,7 @@ from perception.stl_matcher import read_stl, load_models, verify
 
 
 class ManualAssembly:
-    def __init__(self, data, transform, folder, plate_heights):
+    def __init__(self, data, transform, folder, plate_heights, *, strict_colours=False):
         self.data, self.transform = data, transform.copy()
         self.heights = plate_heights
         self.index = 0
@@ -26,6 +26,8 @@ class ManualAssembly:
         # everything already placed, which is stricter than per-step checking.
         for step in data['assembly_plan']['steps']:
             for op in step['operations']:
+                if op['id'] in seen:
+                    raise ValueError(f'Duplicate operation ID {op["id"]!r}')
                 if op['type'] != 'PLACE':
                     raise ValueError(f'Unsupported operation type {op["type"]!r}; '
                                      'the manual MVP only places parts')
@@ -39,16 +41,31 @@ class ManualAssembly:
         definitions = {c['id']:c for c in data['components']}
         parts = {p['id']:p for p in data['parts']}
         self.meshes = []
+        self.colours = []
+        self.part_models = []
         for op in self.operations:
             part = parts[op['part']]
             definition = definitions[part['component']]
             name = definition.get('fusion_component_name',part['component'])
             self.names.append(name)
+            from perception.cad_colour import resolve_colour
+            self.colours.append(resolve_colour(part,definition,strict=strict_colours))
             entry = entries[name]['mesh']
             if entry['units'] != 'mm' or entry['frame'] != 'component_local':
                 raise ValueError('Meshes must use component-local mm')
             mesh = read_stl(Path(folder)/entry['relative_path'])
+            R=np.asarray(part['rotation'],float)
+            position=np.asarray(part['position'],float)
+            if (R.shape!=(3,3) or position.shape!=(3,) or not np.isfinite(R).all()
+                    or not np.isfinite(position).all() or not np.allclose(R.T@R,np.eye(3),atol=1e-5)
+                    or not np.isclose(np.linalg.det(R),1.,atol=1e-5)):
+                raise ValueError(f'Invalid occurrence transform: {part["id"]}')
             self.meshes.append(mesh @ np.asarray(part['rotation']).T + np.asarray(part['position']))
+            oriented = mesh @ np.asarray(part['rotation']).T
+            lo,hi = oriented.min(axis=(0,1)),oriented.max(axis=(0,1))
+            self.part_models.append(oriented-np.r_[(lo[:2]+hi[:2])/2,lo[2]])
+        if not self.meshes:
+            raise ValueError('CAD plan has no PLACE operations')
         self.floor = float(self.meshes[0][...,2].min())
 
     @property
@@ -74,7 +91,7 @@ class ManualAssembly:
         from perception.colour_change import part_colour, detect_colour_change
         from perception.change_detector import detect_change
         self.checked_index = None
-        colour = part_colour(self.names[self.index]) if self.index > 0 else None
+        colour = self.colours[self.index] if self.index > 0 else None
         if colour:
             previous_mask = None
             if before_pose is not None:
@@ -88,7 +105,8 @@ class ManualAssembly:
                 exclude_quads=exclude_quads, search_mask=search_mask, previous_mask=previous_mask)
             if region is None:
                 debug = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-                return False, f'Expected a NEW {colour} part; no accepted colour change. Cannot advance.', debug
+                from perception.cad_colour import colour_label
+                return False, f'Expected a NEW {colour_label(colour)} part; no accepted colour change. Cannot advance.', debug
         else:
             region = detect_change(before, after, exclude_quads=exclude_quads, search_mask=search_mask)
             if region is None:
@@ -109,7 +127,7 @@ class ManualAssembly:
         check = self.last_check
         fitted = (dict(xy_mm=check['measured_xy'],yaw_deg=check['measured_yaw'])
                   if 'measured_xy' in check else None)
-        debug = placement_overlay(after,region,pose=pose,K=K,model=self.models[check['component']],
+        debug = placement_overlay(after,region,pose=pose,K=K,model=self.part_models[self.index],
                                   expected_xyz=check['expected_xyz'],expected_yaw=check['expected_yaw'],
                                   fitted=fitted,base_z=check['expected_xyz'][2])
         result = result[0],result[1],debug

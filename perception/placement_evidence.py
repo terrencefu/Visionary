@@ -21,7 +21,8 @@ def save_check(assembly, before, after, region, pose, K, message, valid_mask=Non
                   angle_tolerance_deg=config.PLACEMENT_TOLERANCE_DEG,
                   board_rms_px=float(pose.reprojection_error) if hasattr(pose,'reprojection_error') else None,
                   board_marker_ids=list(map(int,getattr(pose,'visible_ids',[]))))
-    model = assembly.models[report['component']]
+    model = (assembly.part_models[assembly.index] if hasattr(assembly,'part_models')
+             else assembly.models[report['component']])
     xyz = report['expected_xyz']
     predicted = silhouette(model,report['expected_yaw'],xyz[:2],pose,K,region.mask.shape,base_z=xyz[2])
     union = np.count_nonzero(region.mask | predicted)
@@ -62,6 +63,8 @@ def replay(folder):
             index = len(meshes)-1
             assembly = SimpleNamespace(index=index,meshes=meshes,names=saved['assembly_names'].tolist(),
                                        transform=saved['cad_to_board'],operations=[{'part':report['part']}]*len(meshes))
+            if 'assembly_colours' in report:
+                assembly.colours=report['assembly_colours']
             frame = cv2.imread(str(folder/'after_undistorted.png'))
             result = check_placement(assembly,frame,region,pose,saved['K'],report['colour_verified'],saved['valid_mask'])[:2]
         else:
