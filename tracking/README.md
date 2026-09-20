@@ -62,3 +62,19 @@ Do not run a second camera/projection process alongside this command. A saved st
 - The assembly change detector compares image baselines. If this controller is later connected to `AssemblyState`, pause validation during movement and capture a fresh baseline after settling; do not compare frames across head movement.
 
 Run all tests with `python -m unittest discover -s tests -v`. New tests cover synthetic disturbance recovery with both servo signs, command limits and timing, marker loss/reacquisition, selected-board pose with a second board in view, partial visibility, and the serial protocol. Camera capture, servo direction, real convergence, clearance, settling and projection accuracy still require a mounted-rig test.
+
+## Test without hardware or a teammate
+
+```sh
+python -m tracking.simulate
+```
+
+No camera, Arduino, or calibration file is needed. This renders actual ArUco marker images, runs `BoardTracker` and `FollowController`, and models servo response with an assumed 0.002 rad/us scale and 0.18 s lag. Scenarios include board movement, a rig orientation bump, and moving the board while markers are hidden. Outputs are `data/tracking_simulation/simulation.gif`, `results.png`, `report.json`, and the full `trace.json`. The animation plays at 5x simulated speed. The script exits with an error if nominal convergence, loss handling, or pulse limits fail.
+
+For an intentionally reversed pan direction:
+
+```sh
+python -m tracking.simulate --wrong-sign --output data/tracking_simulation_wrong_sign
+```
+
+That scenario demonstrates why the physical direction check matters: the board can leave view, after which tracking holds rather than searching. These assumed mechanics cannot prove real-world convergence or projector accuracy. To test alone on hardware, leave the projector off, place the marked board in front of the mounted camera, run preview first, then the small-step pan-only command above. Move the board gently and cover the markers to check loss/recovery. The valid local camera calibration must match the camera actually connected.
