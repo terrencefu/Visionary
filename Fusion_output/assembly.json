@@ -276,6 +276,64 @@
     "components": [
         {
             "id": "2850 Medium Stone Grey Technic Engine Cylinder Head",
+            "color": {
+                "status": "solid",
+                "rgb": [
+                    160,
+                    160,
+                    160
+                ],
+                "hex": "#A0A0A0",
+                "appearance_name": "Steel - Satin",
+                "representative_area_fraction": 1.0,
+                "source": "component_faces",
+                "rgb_range": [
+                    0,
+                    255
+                ],
+                "selection": "largest_known_appearance_surface_area",
+                "palette": [
+                    {
+                        "appearance_name": "Steel - Satin",
+                        "appearance_id": "PrismMaterial-018_physmat_aspects:Prism-256",
+                        "rgb": [
+                            160,
+                            160,
+                            160
+                        ],
+                        "hex": "#A0A0A0",
+                        "property_id": "metal_f0",
+                        "status": "solid",
+                        "color_properties": [
+                            {
+                                "id": "metal_f0",
+                                "name": "Color",
+                                "rgb": [
+                                    160,
+                                    160,
+                                    160
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "surface_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            }
+                        ],
+                        "surface_area_cm2": 40.087530381405855,
+                        "area_fraction": 1.0
+                    }
+                ],
+                "warnings": []
+            },
             "fusion_component_name": "2850 Medium Stone Grey Technic Engine Cylinder Head",
             "bounding_box": {
                 "min": [
@@ -311,6 +369,64 @@
         },
         {
             "id": "Plate 1x10 Silver",
+            "color": {
+                "status": "solid",
+                "rgb": [
+                    160,
+                    160,
+                    160
+                ],
+                "hex": "#A0A0A0",
+                "appearance_name": "Steel - Satin",
+                "representative_area_fraction": 1.0,
+                "source": "component_faces",
+                "rgb_range": [
+                    0,
+                    255
+                ],
+                "selection": "largest_known_appearance_surface_area",
+                "palette": [
+                    {
+                        "appearance_name": "Steel - Satin",
+                        "appearance_id": "PrismMaterial-018_physmat_aspects:Prism-256",
+                        "rgb": [
+                            160,
+                            160,
+                            160
+                        ],
+                        "hex": "#A0A0A0",
+                        "property_id": "metal_f0",
+                        "status": "solid",
+                        "color_properties": [
+                            {
+                                "id": "metal_f0",
+                                "name": "Color",
+                                "rgb": [
+                                    160,
+                                    160,
+                                    160
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "surface_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            }
+                        ],
+                        "surface_area_cm2": 26.20964550496869,
+                        "area_fraction": 1.0
+                    }
+                ],
+                "warnings": []
+            },
             "fusion_component_name": "Plate 1x10 Silver",
             "bounding_box": {
                 "min": [
@@ -346,6 +462,64 @@
         },
         {
             "id": "Plate 1x10 Silver__2",
+            "color": {
+                "status": "solid",
+                "rgb": [
+                    160,
+                    160,
+                    160
+                ],
+                "hex": "#A0A0A0",
+                "appearance_name": "Steel - Satin",
+                "representative_area_fraction": 1.0,
+                "source": "component_faces",
+                "rgb_range": [
+                    0,
+                    255
+                ],
+                "selection": "largest_known_appearance_surface_area",
+                "palette": [
+                    {
+                        "appearance_name": "Steel - Satin",
+                        "appearance_id": "PrismMaterial-018_physmat_aspects:Prism-256",
+                        "rgb": [
+                            160,
+                            160,
+                            160
+                        ],
+                        "hex": "#A0A0A0",
+                        "property_id": "metal_f0",
+                        "status": "solid",
+                        "color_properties": [
+                            {
+                                "id": "metal_f0",
+                                "name": "Color",
+                                "rgb": [
+                                    160,
+                                    160,
+                                    160
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "surface_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            }
+                        ],
+                        "surface_area_cm2": 26.20964550496869,
+                        "area_fraction": 1.0
+                    }
+                ],
+                "warnings": []
+            },
             "fusion_component_name": "Plate 1x10 Silver",
             "bounding_box": {
                 "min": [
@@ -381,6 +555,64 @@
         },
         {
             "id": "389423 Bright Blue Technic Brick 1 x 6 with Holes",
+            "color": {
+                "status": "solid",
+                "rgb": [
+                    160,
+                    160,
+                    160
+                ],
+                "hex": "#A0A0A0",
+                "appearance_name": "Steel - Satin",
+                "representative_area_fraction": 1.0,
+                "source": "component_faces",
+                "rgb_range": [
+                    0,
+                    255
+                ],
+                "selection": "largest_known_appearance_surface_area",
+                "palette": [
+                    {
+                        "appearance_name": "Steel - Satin",
+                        "appearance_id": "PrismMaterial-018_physmat_aspects:Prism-256",
+                        "rgb": [
+                            160,
+                            160,
+                            160
+                        ],
+                        "hex": "#A0A0A0",
+                        "property_id": "metal_f0",
+                        "status": "solid",
+                        "color_properties": [
+                            {
+                                "id": "metal_f0",
+                                "name": "Color",
+                                "rgb": [
+                                    160,
+                                    160,
+                                    160
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "surface_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            }
+                        ],
+                        "surface_area_cm2": 33.66732865857151,
+                        "area_fraction": 1.0
+                    }
+                ],
+                "warnings": []
+            },
             "fusion_component_name": "389423 Bright Blue Technic Brick 1 x 6 with Holes",
             "bounding_box": {
                 "min": [
@@ -418,6 +650,86 @@
     "parts": [
         {
             "id": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+            "color": {
+                "status": "solid",
+                "rgb": [
+                    179,
+                    179,
+                    179
+                ],
+                "hex": "#B3B3B3",
+                "appearance_name": "Powder Coat (Grey)",
+                "representative_area_fraction": 1.0,
+                "source": "occurrence_override",
+                "rgb_range": [
+                    0,
+                    255
+                ],
+                "selection": "largest_known_appearance_surface_area",
+                "palette": [
+                    {
+                        "appearance_name": "Powder Coat (Grey)",
+                        "appearance_id": "Prism-099",
+                        "rgb": [
+                            179,
+                            179,
+                            179
+                        ],
+                        "hex": "#B3B3B3",
+                        "property_id": "opaque_albedo",
+                        "status": "solid",
+                        "color_properties": [
+                            {
+                                "id": "opaque_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    179,
+                                    179,
+                                    179
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "opaque_luminance_modifier",
+                                "name": "Luminance Scale",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "opaque_mfp_modifier",
+                                "name": "Weight",
+                                "rgb": [
+                                    0,
+                                    0,
+                                    0
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "surface_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            }
+                        ],
+                        "surface_area_cm2": 40.087530381405855,
+                        "area_fraction": 1.0
+                    }
+                ],
+                "warnings": []
+            },
             "component": "2850 Medium Stone Grey Technic Engine Cylinder Head",
             "fusion_component_name": "2850 Medium Stone Grey Technic Engine Cylinder Head",
             "position": [
@@ -559,6 +871,86 @@
         },
         {
             "id": "Plate 1x10 Silver:1",
+            "color": {
+                "status": "solid",
+                "rgb": [
+                    196,
+                    53,
+                    39
+                ],
+                "hex": "#C43527",
+                "appearance_name": "Powder Coat (Red)",
+                "representative_area_fraction": 1.0,
+                "source": "occurrence_override",
+                "rgb_range": [
+                    0,
+                    255
+                ],
+                "selection": "largest_known_appearance_surface_area",
+                "palette": [
+                    {
+                        "appearance_name": "Powder Coat (Red)",
+                        "appearance_id": "Prism-101",
+                        "rgb": [
+                            196,
+                            53,
+                            39
+                        ],
+                        "hex": "#C43527",
+                        "property_id": "opaque_albedo",
+                        "status": "solid",
+                        "color_properties": [
+                            {
+                                "id": "opaque_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    196,
+                                    53,
+                                    39
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "opaque_luminance_modifier",
+                                "name": "Luminance Scale",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "opaque_mfp_modifier",
+                                "name": "Weight",
+                                "rgb": [
+                                    0,
+                                    0,
+                                    0
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "surface_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            }
+                        ],
+                        "surface_area_cm2": 26.20964550496869,
+                        "area_fraction": 1.0
+                    }
+                ],
+                "warnings": []
+            },
             "component": "Plate 1x10 Silver",
             "fusion_component_name": "Plate 1x10 Silver",
             "position": [
@@ -700,6 +1092,86 @@
         },
         {
             "id": "Plate 1x10 Silver:2",
+            "color": {
+                "status": "solid",
+                "rgb": [
+                    196,
+                    53,
+                    39
+                ],
+                "hex": "#C43527",
+                "appearance_name": "Powder Coat (Red)",
+                "representative_area_fraction": 1.0,
+                "source": "occurrence_override",
+                "rgb_range": [
+                    0,
+                    255
+                ],
+                "selection": "largest_known_appearance_surface_area",
+                "palette": [
+                    {
+                        "appearance_name": "Powder Coat (Red)",
+                        "appearance_id": "Prism-101",
+                        "rgb": [
+                            196,
+                            53,
+                            39
+                        ],
+                        "hex": "#C43527",
+                        "property_id": "opaque_albedo",
+                        "status": "solid",
+                        "color_properties": [
+                            {
+                                "id": "opaque_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    196,
+                                    53,
+                                    39
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "opaque_luminance_modifier",
+                                "name": "Luminance Scale",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "opaque_mfp_modifier",
+                                "name": "Weight",
+                                "rgb": [
+                                    0,
+                                    0,
+                                    0
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "surface_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            }
+                        ],
+                        "surface_area_cm2": 26.20964550496869,
+                        "area_fraction": 1.0
+                    }
+                ],
+                "warnings": []
+            },
             "component": "Plate 1x10 Silver__2",
             "fusion_component_name": "Plate 1x10 Silver",
             "position": [
@@ -841,6 +1313,86 @@
         },
         {
             "id": "389423 Bright Blue Technic Brick 1 x 6 with Holes:1",
+            "color": {
+                "status": "solid",
+                "rgb": [
+                    48,
+                    59,
+                    150
+                ],
+                "hex": "#303B96",
+                "appearance_name": "Powder Coat (Blue)",
+                "representative_area_fraction": 1.0,
+                "source": "occurrence_override",
+                "rgb_range": [
+                    0,
+                    255
+                ],
+                "selection": "largest_known_appearance_surface_area",
+                "palette": [
+                    {
+                        "appearance_name": "Powder Coat (Blue)",
+                        "appearance_id": "Prism-097",
+                        "rgb": [
+                            48,
+                            59,
+                            150
+                        ],
+                        "hex": "#303B96",
+                        "property_id": "opaque_albedo",
+                        "status": "solid",
+                        "color_properties": [
+                            {
+                                "id": "opaque_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    48,
+                                    59,
+                                    150
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "opaque_luminance_modifier",
+                                "name": "Luminance Scale",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "opaque_mfp_modifier",
+                                "name": "Weight",
+                                "rgb": [
+                                    0,
+                                    0,
+                                    0
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            },
+                            {
+                                "id": "surface_albedo",
+                                "name": "Color",
+                                "rgb": [
+                                    255,
+                                    255,
+                                    255
+                                ],
+                                "textured": false,
+                                "multiple_values": false
+                            }
+                        ],
+                        "surface_area_cm2": 33.66732865857151,
+                        "area_fraction": 1.0
+                    }
+                ],
+                "warnings": []
+            },
             "component": "389423 Bright Blue Technic Brick 1 x 6 with Holes",
             "fusion_component_name": "389423 Bright Blue Technic Brick 1 x 6 with Holes",
             "position": [
