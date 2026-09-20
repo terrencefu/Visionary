@@ -1,0 +1,35 @@
+{
+  "inputs": [
+    {
+      "path": "data\\pose_diagnostic_backup\\pose_20260919T232047_919451.json",
+      "sha256": "abf15a2bb7f4c2ee4a9fa7187f033ab08132282d1ee3d3cf7c786adc99f01565"
+    },
+    {
+      "path": "data\\pose_diagnostic_backup\\pose_20260919T232121_745527.json",
+      "sha256": "09d96325383aa74acd9aeec0645864ecae746b67e6b81cfeab07e72a90cb8ad5"
+    },
+    {
+      "path": "data\\pose_20260919T232154_762078.json",
+      "sha256": "c23e654170c3edd7a395df12c08f2c3a16e44bd535979b8fdf43c3a1cf792919"
+    },
+    {
+      "path": "data\\pose_20260919T232234_972378.json",
+      "sha256": "c4208d4b556741e3249a998e36df1f0738cd47fc2a395bb3dc57a56402340a58"
+    },
+    {
+      "path": "data\\pose_20260919T232340_035368.json",
+      "sha256": "e5a581f6e7d811bfcff08e27243151b9408024c6cf23c52441cf2dd0aef578d7"
+    },
+    {
+      "path": "data\\pose_20260919T232426_539651.json",
+      "sha256": "dd5dd4ca93d6cdb1a814e66286b6a173394b37092fff3c8ea0b8bfed12ff2272"
+    },
+    {
+      "path": "data\\pose_20260919T232516_820268.json",
+      "sha256": "c62a3a202a2be18522c460675dc99f19a4d6fabb56bb6684a0c915b2f266c565"
+    }
+  ],
+  "opencv": "4.14.0",
+  "fixed_rms": 2.823796705442222,
+  "rms": 2.3141551929974438
+}

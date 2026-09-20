@@ -79,8 +79,9 @@ def model_to_board(triangles, yaw, xy, pose):
     return upright @ rotation.T + np.array([xy[0], xy[1], 0])
 
 
-def silhouette(triangles, yaw, xy, pose, K, shape):
+def silhouette(triangles, yaw, xy, pose, K, shape, base_z=0.0):
     points = model_to_board(triangles, yaw, xy, pose)
+    points[...,2] += base_z
     camera = points @ cv2.Rodrigues(pose.rvec)[0].T + np.asarray(pose.tvec).reshape(3)
     if not np.isfinite(camera).all() or np.any(camera[..., 2] <= 0):
         raise ValueError('Model crosses camera plane')
@@ -104,7 +105,7 @@ def centered_iou(observed, rendered):
     return np.count_nonzero(observed & aligned) / max(union, 1), aligned
 
 
-def verify(models, expected, region, pose, K, min_score=0.80, margin=0.08):
+def verify(models, expected, region, pose, K, min_score=0.80, margin=0.08, base_z=0.0):
     height = camera_height_above_board(pose.rvec, pose.tvec)
     print(f'STL board convention: camera Z={height:.1f} mm; '
           f'CAD up maps to board {"+Z" if height > 0 else "-Z"} (proper rotation).')
@@ -124,7 +125,7 @@ def verify(models, expected, region, pose, K, min_score=0.80, margin=0.08):
     for name, triangles in models.items():
         best = (-1, 0, None)
         def evaluate(angle):
-            rendered = silhouette(triangles, angle, xy, pose, crop_K, observed.shape)
+            rendered = silhouette(triangles, angle, xy, pose, crop_K, observed.shape, base_z=base_z)
             if (np.any(rendered[0]) or np.any(rendered[-1]) or
                     np.any(rendered[:, 0]) or np.any(rendered[:, -1])):
                 return 0.0, float(angle), rendered  # Never reward a clipped template.

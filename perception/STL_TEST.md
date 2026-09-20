@@ -1,5 +1,68 @@
 # Manual change and STL test
 
+## Placement-checked four-step assembly MVP
+
+```powershell
+python main.py perceive --cad Fusion_output --part-id "Plate 1x10 Silver" --anchor
+```
+
+Clear the cardboard and press Space. Place the first silver plate flat, studs up,
+then remove your hand and press V. The STL identity check and metric anchor fit
+run as before. Inspect the green body-deck outline and press Enter to confirm.
+The anchor registration is now fixed; keep the first plate and board stationary.
+
+Enter confirms the initial anchor. For each subsequent step, V checks placement;
+Enter performs a fresh check and advances only on PASS. The sequence is first
+plate, second plate, grey cylinder head, blue Technic brick, then completion.
+The current component is printed in the terminal and camera preview. Completion
+blanks the projector and exits. Q/Esc exits early. B blanks and resets the assembly;
+clear the workspace before capturing a fresh baseline. Missing ArUco pose blanks
+projection and prevents advancing until tracking returns. Invalid/off-screen
+projection stops the preview. No servo commands or calibration-file writes.
+
+Anchor motion tracking, local recovery, and periodic projector blanking have been
+removed. The program does not continuously detect if a loose plate moves. Secure/check the
+anchor manually. Later checks compare a blank-projector baseline from the prior
+accepted step with a settled current frame. They verify the expected STL shape,
+fit metric XY/yaw using its CAD base height, and compare against registered CAD
+targets. Defaults are 3 mm position and 8 degrees rotation, with 180-degree LEGO
+symmetry accepted. Failed or uncertain checks block advancement. The terminal
+prints expected/observed position, correction, overlap, and assumed base Z.
+Previous parts are not all reverified at every step; the current addition is
+checked against the fixed assembly registration. Height is assumed from CAD, not
+independently measured. Frame-difference contamination, shadows, or occlusion in
+stacked assemblies can cause uncertainty. No override to bypass these checks is
+added. Each Enter rechecks, so an old V success cannot accept a changed placement.
+
+The first two plate outlines use the validated 3.33 mm body deck by default.
+For steps 3 and 4, the target mesh's XY bounding envelope is sampled and placed on
+surfaces of previously accepted CAD parts, using vertical triangle intersections.
+Where no installed surface lies below a sample, the cardboard is used. Segments
+across height discontinuities are omitted. This avoids aiming at the absent part's
+future top, but remains approximate placement guidance, not a mating-surface or
+contact-point detector. It assumes earlier parts match their CAD placements and
+does not yet test occlusion along the projector beam. Physically validate these
+raised guidance steps before relying on them for the demo.
+
+Registration uses the full occurrence transform and mesh-origin offset. A 180-degree
+symmetric anchor pose is accepted. The four-step controller validates dependency
+order and currently requires one PLACE operation per CAD step.
+
+### Height comparison
+
+During either projected plate preview, press **1** for maximum STL height
+(5.18 mm), or **2** for the inferred broad body deck (3.33 mm). The body deck is
+the default after the physical alignment test favored it. It is
+selected by the largest horizontal triangle area between bottom and stud top.
+This is a mesh-derived diagnostic assumption, not a new physical measurement.
+Only the outline height changes: the fitted anchor XY/yaw, CAD registration,
+and saved calibration stay fixed. Start with the green outline on the existing
+first plate, and keep both plate and rig still while toggling. If the body-height
+outline aligns better, surface height contributes to the offset. A remaining
+offset can still come from anchor fitting or calibration. The red target for an
+absent second plate strikes the cardboard, so it is not a valid test of landing
+accuracy on a raised surface until that plate is present.
+
 Run from the repository with the hackthenorth environment active:
 
 ```powershell

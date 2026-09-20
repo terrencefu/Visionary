@@ -1,0 +1,35 @@
+{
+  "inputs": [
+    {
+      "path": "data\\pre_mount_fix_backup\\pose_20260919T230434_909240.json",
+      "sha256": "20970f76fc8a90f3f329090e26cbad29d75b6d922fa2b60ca867d9c7a8a14802"
+    },
+    {
+      "path": "data\\pre_mount_fix_backup\\pose_20260919T230605_384213.json",
+      "sha256": "c3377292c47b3ce0ee6bc91c8393828933140215b19b9e71def445116d918eeb"
+    },
+    {
+      "path": "data\\pre_mount_fix_backup\\pose_20260919T230646_161101.json",
+      "sha256": "978b99e6857cf505bd99fc3287161a451f19581da503d37daef30f3873e21560"
+    },
+    {
+      "path": "data\\pre_mount_fix_backup\\pose_20260919T230929_809798.json",
+      "sha256": "fde75c19100930ec0fef868d35adf1261de2157926e25e6d1d601c89428b243e"
+    },
+    {
+      "path": "data\\pre_mount_fix_backup\\pose_20260919T231004_888378.json",
+      "sha256": "806320a918d0bf7c3dba61b33a3e7f0ee58bff828d3f0c3f384e89c4539f42f8"
+    },
+    {
+      "path": "data\\pre_mount_fix_backup\\pose_20260919T231117_919285.json",
+      "sha256": "3c7e5ae148d1595fd01ba58c0e22bb75a90eaab6542b82be8cb9e5f3fe7dde61"
+    },
+    {
+      "path": "data\\pre_mount_fix_backup\\pose_20260919T231152_301915.json",
+      "sha256": "d6f16f56a5163493074d8e61d76bb9819e1a50beef7412b53887aac95132cea8"
+    }
+  ],
+  "opencv": "4.14.0",
+  "fixed_rms": 29.635423151440992,
+  "rms": 1.9107961406314649
+}

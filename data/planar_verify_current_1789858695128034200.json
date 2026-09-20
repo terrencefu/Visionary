@@ -1,0 +1,719 @@
+{
+  "calibration_sha256": "a185ccd40fc557bd657d876a384530e25e2fcbbda3183f65e5675ee160d8e2df",
+  "saved_status": "VALIDATED AT RECORDED POSITION",
+  "timestamp": 1789858695.1280344,
+  "passed": false,
+  "dot_color": "magenta",
+  "note": "Verification only. Local reference does not authorize guidance or replace saved reference.",
+  "reference_acquisition": [
+    {
+      "frame": 1,
+      "elapsed_s": 0.5159999999887077,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.1338283154028221,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 2,
+      "elapsed_s": 1.0469999999913853,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.0959866599341943,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 3,
+      "elapsed_s": 1.5779999999940628,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.0998253098448063,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 4,
+      "elapsed_s": 2.077999999994063,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1692820002690072,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 5,
+      "elapsed_s": 2.577999999994063,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.097089854047646,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 6,
+      "elapsed_s": 3.077999999994063,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.18747835833276,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 7,
+      "elapsed_s": 3.6089999999967404,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.1267900140715748,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 8,
+      "elapsed_s": 4.10899999999674,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1562200009287715,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 9,
+      "elapsed_s": 4.60899999999674,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1592565860767827,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 2
+    },
+    {
+      "frame": 10,
+      "elapsed_s": 5.10899999999674,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.2052759604163668,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 3
+    },
+    {
+      "frame": 11,
+      "elapsed_s": 5.60899999999674,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.0774133706695594,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 12,
+      "elapsed_s": 6.10899999999674,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1536343015819572,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 13,
+      "elapsed_s": 6.625,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.158962624191056,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 2
+    },
+    {
+      "frame": 14,
+      "elapsed_s": 7.155999999988126,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1649071604308254,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 3
+    },
+    {
+      "frame": 15,
+      "elapsed_s": 7.687999999994645,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1643480615507598,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 4
+    },
+    {
+      "frame": 16,
+      "elapsed_s": 8.218999999997322,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.0815536015718026,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 17,
+      "elapsed_s": 8.75,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1686760107151786,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 18,
+      "elapsed_s": 9.25,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.177987781840898,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 2
+    },
+    {
+      "frame": 19,
+      "elapsed_s": 9.75,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.0900384203915747,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 20,
+      "elapsed_s": 10.25,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.0860754639512733,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 21,
+      "elapsed_s": 10.75,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1509346525939688,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 22,
+      "elapsed_s": 11.25,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.0824413400186366,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 23,
+      "elapsed_s": 11.75,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1467550097724464,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 24,
+      "elapsed_s": 12.25,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.0938269541897965,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 25,
+      "elapsed_s": 12.75,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.161909322480729,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 26,
+      "elapsed_s": 13.25,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.182905161047521,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 2
+    },
+    {
+      "frame": 27,
+      "elapsed_s": 13.75,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.09773024727406,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 28,
+      "elapsed_s": 14.265999999988708,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.0982649743935262,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 29,
+      "elapsed_s": 14.796999999991385,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.1232635871879435,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 30,
+      "elapsed_s": 15.327999999994063,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1622208245812815,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    },
+    {
+      "frame": 31,
+      "elapsed_s": 15.85899999999674,
+      "detected_ids": [
+        3,
+        2,
+        0
+      ],
+      "missing_ids": [
+        1
+      ],
+      "known_ids": [
+        3,
+        2,
+        0
+      ],
+      "pose_rms_px": 1.0744357150542312,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [1]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 32,
+      "elapsed_s": 16.390999999988708,
+      "detected_ids": [
+        3,
+        2,
+        1
+      ],
+      "missing_ids": [
+        0
+      ],
+      "known_ids": [
+        3,
+        2,
+        1
+      ],
+      "pose_rms_px": 1.0988732624622533,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [0]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 33,
+      "elapsed_s": 16.921999999991385,
+      "detected_ids": [
+        3,
+        2,
+        1
+      ],
+      "missing_ids": [
+        0
+      ],
+      "known_ids": [
+        3,
+        2,
+        1
+      ],
+      "pose_rms_px": 1.0609803359085486,
+      "pose_rejection": null,
+      "restart_reason": "Missing markers [0]",
+      "consecutive_valid_frames": 0
+    },
+    {
+      "frame": 34,
+      "elapsed_s": 17.421999999991385,
+      "detected_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "missing_ids": [],
+      "known_ids": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "pose_rms_px": 1.1137885991576784,
+      "pose_rejection": null,
+      "consecutive_valid_frames": 1
+    }
+  ],
+  "reference_requirements": {
+    "marker_ids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "consecutive_frames": 9,
+    "timeout_s": 30.0
+  },
+  "rejection": "Interrupted",
+  "calibration_bytes_unchanged": true
+}
