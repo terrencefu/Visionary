@@ -1,0 +1,176 @@
+{
+  "format": "visionary_toCV",
+  "version": "2.0",
+  "source": {
+    "design_name": "Thing_2",
+    "root_component": "Thing_2"
+  },
+  "coordinate_system": {
+    "cad_frame": {
+      "name": "fusion_root_assembly",
+      "units": "mm",
+      "origin": "Fusion root component origin",
+      "x_axis": "Fusion root +X",
+      "y_axis": "Fusion root +Y",
+      "z_axis": "Fusion root +Z"
+    },
+    "component_mesh_frame": {
+      "name": "component_local",
+      "units": "mm",
+      "description": "Each component mesh is exported in the component's native local coordinate system before occurrence position/rotation is applied."
+    },
+    "workbench_frame": {
+      "name": "physical_workbench_xy",
+      "units": "mm",
+      "origin": "physical_workbench_origin_or_aruco_0",
+      "x_axis": "physical workbench +X",
+      "y_axis": "physical workbench +Y"
+    },
+    "registration": {
+      "status": "calibration_required",
+      "method": "2d_rigid_similarity_transform",
+      "rotation_deg": 0.0,
+      "translation_mm": [
+        0.0,
+        0.0
+      ],
+      "scale": 1.0,
+      "matrix_2d": [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    "units": {
+      "cad_export": "mm",
+      "component_mesh": "mm",
+      "workbench": "mm",
+      "fusion_internal_length": "cm"
+    }
+  },
+  "mesh_export": {
+    "format": "STL",
+    "frame": "component_local",
+    "units": "mm",
+    "one_mesh_per": "unique_component",
+    "directory": "meshes",
+    "quality": "high"
+  },
+  "components": [
+    {
+      "id": "2850 Medium Stone Grey Technic Engine Cylinder Head",
+      "mesh": {
+        "status": "complete",
+        "format": "STL_ascii",
+        "filename": "2850 Medium Stone Grey Technic Engine Cylinder Head.stl",
+        "relative_path": "meshes/2850 Medium Stone Grey Technic Engine Cylinder Head.stl",
+        "triangle_count": 41310,
+        "body_count": 1,
+        "frame": "component_local",
+        "units": "mm"
+      },
+      "bounding_box": {
+        "min_mm": [
+          -12.0,
+          0.0,
+          -8.0
+        ],
+        "max_mm": [
+          12.0,
+          20.8,
+          8.0
+        ],
+        "dimensions_mm": [
+          24.0,
+          20.8,
+          16.0
+        ]
+      }
+    },
+    {
+      "id": "389423 Bright Blue Technic Brick 1 x 6 with Holes",
+      "mesh": {
+        "status": "complete",
+        "format": "STL_ascii",
+        "filename": "389423 Bright Blue Technic Brick 1 x 6 with Holes.stl",
+        "relative_path": "meshes/389423 Bright Blue Technic Brick 1 x 6 with Holes.stl",
+        "triangle_count": 37598,
+        "body_count": 1,
+        "frame": "component_local",
+        "units": "mm"
+      },
+      "bounding_box": {
+        "min_mm": [
+          -4.0,
+          0.0,
+          -4.0
+        ],
+        "max_mm": [
+          44.0,
+          11.2,
+          4.0
+        ],
+        "dimensions_mm": [
+          48.0,
+          11.2,
+          8.0
+        ]
+      }
+    },
+    {
+      "id": "Plate 1x10 Silver",
+      "mesh": {
+        "status": "complete",
+        "format": "STL_ascii",
+        "filename": "Plate 1x10 Silver.stl",
+        "relative_path": "meshes/Plate 1x10 Silver.stl",
+        "triangle_count": 4744,
+        "body_count": 1,
+        "frame": "component_local",
+        "units": "mm"
+      },
+      "bounding_box": {
+        "min_mm": [
+          0.0,
+          0.0,
+          -80.0
+        ],
+        "max_mm": [
+          8.0,
+          5.18,
+          0.0
+        ],
+        "dimensions_mm": [
+          8.0,
+          5.18,
+          80.0
+        ]
+      }
+    },
+    {
+      "id": "Thing_2",
+      "mesh": {
+        "status": "no_mesh",
+        "filename": null,
+        "relative_path": null,
+        "triangle_count": 0,
+        "body_count": 0,
+        "frame": "component_local",
+        "units": "mm"
+      },
+      "bounding_box": null
+    }
+  ]
+}

@@ -1283,16 +1283,10 @@ def run(context):
         # Output location
         # ----------------------------------------------------
 
-        script_directory = (
-            os.path.dirname(
-                os.path.abspath(
-                    __file__
-                )
-            )
-        )
 
-        output_directory = (
-            script_directory
+
+        output_directory = os.path.expanduser(
+            "~/PycharmProjects/Visionary/Fusion_output"
         )
 
         # ----------------------------------------------------

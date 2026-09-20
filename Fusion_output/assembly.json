@@ -1,0 +1,1896 @@
+{
+    "assembly": {
+        "name": "Thing_2",
+        "units": "mm",
+        "coordinate_frame": "fusion_root_assembly",
+        "assembly_axis": [
+            0,
+            0,
+            1
+        ],
+        "axis_analysis": {
+            "method": "relationship_interface_geometry",
+            "axis_selection_reason": "highest_weighted_interface_alignment",
+            "axis_scores": {
+                "X": 0.075293,
+                "Y": 0.005669,
+                "Z": 0.65437
+            },
+            "axis_weights": {
+                "X": 6.5,
+                "Y": 6.5,
+                "Z": 6.5
+            },
+            "selected_axis": "Z",
+            "selected_axis_vector": [
+                0,
+                0,
+                1
+            ],
+            "confidence": "high",
+            "relationship_count": 4,
+            "high_confidence_relationship_count": 3,
+            "relationship_analysis": [
+                {
+                    "part_a": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+                    "part_b": "Plate 1x10 Silver:1",
+                    "evidence": [
+                        "candidate_contact",
+                        "joint"
+                    ],
+                    "weight": 2.0,
+                    "interface_geometry": {
+                        "X": {
+                            "overlap": 8.02,
+                            "gap": 0.0,
+                            "overlap_ratio": 1.0,
+                            "separation_score": 0.0,
+                            "perpendicular_overlap": 0.674346,
+                            "interface_score": 0.0,
+                            "all_axis_overlap_ratios": [
+                                1.0,
+                                0.989076,
+                                0.359615
+                            ]
+                        },
+                        "Y": {
+                            "overlap": 15.845,
+                            "gap": 0.0,
+                            "overlap_ratio": 0.989076,
+                            "separation_score": 0.010924,
+                            "perpendicular_overlap": 0.679808,
+                            "interface_score": 0.007426,
+                            "all_axis_overlap_ratios": [
+                                1.0,
+                                0.989076,
+                                0.359615
+                            ]
+                        },
+                        "Z": {
+                            "overlap": 1.87,
+                            "gap": 0.0,
+                            "overlap_ratio": 0.359615,
+                            "separation_score": 0.640385,
+                            "perpendicular_overlap": 0.994538,
+                            "interface_score": 0.636887,
+                            "all_axis_overlap_ratios": [
+                                1.0,
+                                0.989076,
+                                0.359615
+                            ]
+                        }
+                    },
+                    "center_difference_diagnostic": [
+                        -7.925,
+                        -72.175,
+                        -3.33
+                    ]
+                },
+                {
+                    "part_a": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+                    "part_b": "Plate 1x10 Silver:2",
+                    "evidence": [
+                        "candidate_contact",
+                        "joint"
+                    ],
+                    "weight": 2.0,
+                    "interface_geometry": {
+                        "X": {
+                            "overlap": 8.02,
+                            "gap": 0.0,
+                            "overlap_ratio": 1.0,
+                            "separation_score": 0.0,
+                            "perpendicular_overlap": 0.674346,
+                            "interface_score": 0.0,
+                            "all_axis_overlap_ratios": [
+                                1.0,
+                                0.989076,
+                                0.359615
+                            ]
+                        },
+                        "Y": {
+                            "overlap": 15.845,
+                            "gap": 0.0,
+                            "overlap_ratio": 0.989076,
+                            "separation_score": 0.010924,
+                            "perpendicular_overlap": 0.679808,
+                            "interface_score": 0.007426,
+                            "all_axis_overlap_ratios": [
+                                1.0,
+                                0.989076,
+                                0.359615
+                            ]
+                        },
+                        "Z": {
+                            "overlap": 1.87,
+                            "gap": 0.0,
+                            "overlap_ratio": 0.359615,
+                            "separation_score": 0.640385,
+                            "perpendicular_overlap": 0.994538,
+                            "interface_score": 0.636887,
+                            "all_axis_overlap_ratios": [
+                                1.0,
+                                0.989076,
+                                0.359615
+                            ]
+                        }
+                    },
+                    "center_difference_diagnostic": [
+                        -0.075,
+                        -72.175,
+                        -3.33
+                    ]
+                },
+                {
+                    "part_a": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+                    "part_b": "389423 Bright Blue Technic Brick 1 x 6 with Holes:1",
+                    "evidence": [
+                        "candidate_contact",
+                        "joint"
+                    ],
+                    "weight": 2.0,
+                    "interface_geometry": {
+                        "X": {
+                            "overlap": 8.02,
+                            "gap": 0.0,
+                            "overlap_ratio": 1.0,
+                            "separation_score": 0.0,
+                            "perpendicular_overlap": 0.56908,
+                            "interface_score": 0.0,
+                            "all_axis_overlap_ratios": [
+                                1.0,
+                                0.993758,
+                                0.144402
+                            ]
+                        },
+                        "Y": {
+                            "overlap": 15.92,
+                            "gap": 0.0,
+                            "overlap_ratio": 0.993758,
+                            "separation_score": 0.006242,
+                            "perpendicular_overlap": 0.572201,
+                            "interface_score": 0.003572,
+                            "all_axis_overlap_ratios": [
+                                1.0,
+                                0.993758,
+                                0.144402
+                            ]
+                        },
+                        "Z": {
+                            "overlap": 1.620196,
+                            "gap": 0.0,
+                            "overlap_ratio": 0.144402,
+                            "separation_score": 0.855598,
+                            "perpendicular_overlap": 0.996879,
+                            "interface_score": 0.852927,
+                            "all_axis_overlap_ratios": [
+                                1.0,
+                                0.993758,
+                                0.144402
+                            ]
+                        }
+                    },
+                    "center_difference_diagnostic": [
+                        4.0,
+                        3.9,
+                        19.2
+                    ]
+                },
+                {
+                    "part_a": "Plate 1x10 Silver:1",
+                    "part_b": "Plate 1x10 Silver:2",
+                    "evidence": [
+                        "candidate_contact"
+                    ],
+                    "weight": 0.5,
+                    "interface_geometry": {
+                        "X": {
+                            "overlap": 0.17,
+                            "gap": 0.0,
+                            "overlap_ratio": 0.021197,
+                            "separation_score": 0.978803,
+                            "perpendicular_overlap": 1.0,
+                            "interface_score": 0.978803,
+                            "all_axis_overlap_ratios": [
+                                0.021197,
+                                1.0,
+                                1.0
+                            ]
+                        },
+                        "Y": {
+                            "overlap": 80.02,
+                            "gap": 0.0,
+                            "overlap_ratio": 1.0,
+                            "separation_score": 0.0,
+                            "perpendicular_overlap": 0.510599,
+                            "interface_score": 0.0,
+                            "all_axis_overlap_ratios": [
+                                0.021197,
+                                1.0,
+                                1.0
+                            ]
+                        },
+                        "Z": {
+                            "overlap": 5.2,
+                            "gap": 0.0,
+                            "overlap_ratio": 1.0,
+                            "separation_score": 0.0,
+                            "perpendicular_overlap": 0.510599,
+                            "interface_score": 0.0,
+                            "all_axis_overlap_ratios": [
+                                0.021197,
+                                1.0,
+                                1.0
+                            ]
+                        }
+                    },
+                    "center_difference_diagnostic": [
+                        7.85,
+                        0.0,
+                        0.0
+                    ]
+                }
+            ]
+        }
+    },
+    "coordinate_system": {
+        "cad_root_frame": "fusion_root_assembly",
+        "component_frame": "component_local",
+        "workbench_frame": "workbench",
+        "camera_frame": "camera",
+        "registration": {
+            "status": "calibration_required",
+            "method": "cad_anchor_to_aruco_then_camera_extrinsics",
+            "cad_to_aruco": {
+                "translation_mm": null,
+                "rotation_deg": null
+            },
+            "note": "Physical anchor registration must be calibrated on the workbench."
+        }
+    },
+    "camera_model": {
+        "status": "calibration_required",
+        "projection": "perspective",
+        "note": "Actual camera projection is performed in CV using calibrated intrinsics and extrinsics."
+    },
+    "components": [
+        {
+            "id": "2850 Medium Stone Grey Technic Engine Cylinder Head",
+            "fusion_component_name": "2850 Medium Stone Grey Technic Engine Cylinder Head",
+            "bounding_box": {
+                "min": [
+                    -12.0,
+                    0.0,
+                    -8.0
+                ],
+                "max": [
+                    12.0,
+                    20.8,
+                    8.0
+                ]
+            },
+            "reference_point": {
+                "name": "component_local_bounding_box_min_corner",
+                "method": "component_local_bounding_box_minimum",
+                "reference_frame": "component_reference_point_local",
+                "reference_frame_position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "units": "mm",
+                "cad_mapping": {
+                    "source_frame": "component_local",
+                    "position": [
+                        -12.0,
+                        0.0,
+                        -8.0
+                    ]
+                }
+            }
+        },
+        {
+            "id": "Plate 1x10 Silver",
+            "fusion_component_name": "Plate 1x10 Silver",
+            "bounding_box": {
+                "min": [
+                    0.0,
+                    0.0,
+                    -80.0
+                ],
+                "max": [
+                    8.0,
+                    5.18,
+                    0.0
+                ]
+            },
+            "reference_point": {
+                "name": "component_local_bounding_box_min_corner",
+                "method": "component_local_bounding_box_minimum",
+                "reference_frame": "component_reference_point_local",
+                "reference_frame_position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "units": "mm",
+                "cad_mapping": {
+                    "source_frame": "component_local",
+                    "position": [
+                        0.0,
+                        0.0,
+                        -80.0
+                    ]
+                }
+            }
+        },
+        {
+            "id": "Plate 1x10 Silver__2",
+            "fusion_component_name": "Plate 1x10 Silver",
+            "bounding_box": {
+                "min": [
+                    0.0,
+                    0.0,
+                    -80.0
+                ],
+                "max": [
+                    8.0,
+                    5.18,
+                    0.0
+                ]
+            },
+            "reference_point": {
+                "name": "component_local_bounding_box_min_corner",
+                "method": "component_local_bounding_box_minimum",
+                "reference_frame": "component_reference_point_local",
+                "reference_frame_position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "units": "mm",
+                "cad_mapping": {
+                    "source_frame": "component_local",
+                    "position": [
+                        0.0,
+                        0.0,
+                        -80.0
+                    ]
+                }
+            }
+        },
+        {
+            "id": "389423 Bright Blue Technic Brick 1 x 6 with Holes",
+            "fusion_component_name": "389423 Bright Blue Technic Brick 1 x 6 with Holes",
+            "bounding_box": {
+                "min": [
+                    -4.0,
+                    0.0,
+                    -4.0
+                ],
+                "max": [
+                    44.0,
+                    11.2,
+                    4.0
+                ]
+            },
+            "reference_point": {
+                "name": "component_local_bounding_box_min_corner",
+                "method": "component_local_bounding_box_minimum",
+                "reference_frame": "component_reference_point_local",
+                "reference_frame_position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "units": "mm",
+                "cad_mapping": {
+                    "source_frame": "component_local",
+                    "position": [
+                        -4.0,
+                        0.0,
+                        -4.0
+                    ]
+                }
+            }
+        }
+    ],
+    "parts": [
+        {
+            "id": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+            "component": "2850 Medium Stone Grey Technic Engine Cylinder Head",
+            "fusion_component_name": "2850 Medium Stone Grey Technic Engine Cylinder Head",
+            "position": [
+                -9.401441,
+                38.011193,
+                16.33
+            ],
+            "occurrence_origin": [
+                -9.401441,
+                38.011193,
+                16.33
+            ],
+            "rotation": [
+                [
+                    1.0,
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0,
+                    -1.0
+                ],
+                [
+                    0.0,
+                    1.0,
+                    0.0
+                ]
+            ],
+            "reference_point": {
+                "name": "component_local_bounding_box_min_corner",
+                "method": "component_local_bounding_box_minimum",
+                "reference_frame": "part_reference_point_local",
+                "reference_frame_position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "assembly_position": [
+                    -21.401441,
+                    46.011193,
+                    16.33
+                ],
+                "coordinate_frame": "fusion_root_assembly",
+                "units": "mm",
+                "cad_mapping": {
+                    "source_frame": "component_local",
+                    "position": [
+                        -12.0,
+                        0.0,
+                        -8.0
+                    ]
+                }
+            },
+            "bounding_box": {
+                "min": [
+                    -21.413455,
+                    30.001193,
+                    16.32
+                ],
+                "max": [
+                    2.610573,
+                    46.021193,
+                    37.140196
+                ]
+            },
+            "assembly_height": 16.32,
+            "coordinate_frames": {
+                "component_local": "component_local",
+                "occurrence_transform": "component_local_to_fusion_root_assembly",
+                "assembly": "fusion_root_assembly",
+                "assembly_axis_in_component_local": {
+                    "vector": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "cardinal_axis": "+Y"
+                },
+                "component_axes_in_assembly": {
+                    "local_x": [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "local_y": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "local_z": [
+                        0.0,
+                        -1.0,
+                        0.0
+                    ]
+                }
+            },
+            "orientation": {
+                "full_rotation_matrix": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ],
+                "in_plane_yaw": {
+                    "status": "valid",
+                    "degrees": 0.0,
+                    "reference_axis": "assembly_plane_reference_x",
+                    "reference_x": [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "reference_y": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "component_local_axis_used": "+X",
+                    "component_up_axis": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                },
+                "rotation_convention": "component_local_to_fusion_root_assembly"
+            }
+        },
+        {
+            "id": "Plate 1x10 Silver:1",
+            "component": "Plate 1x10 Silver",
+            "fusion_component_name": "Plate 1x10 Silver",
+            "position": [
+                -17.326441,
+                -34.163807,
+                13.0
+            ],
+            "occurrence_origin": [
+                -17.326441,
+                -34.163807,
+                13.0
+            ],
+            "rotation": [
+                [
+                    1.0,
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0,
+                    -1.0
+                ],
+                [
+                    0.0,
+                    1.0,
+                    0.0
+                ]
+            ],
+            "reference_point": {
+                "name": "component_local_bounding_box_min_corner",
+                "method": "component_local_bounding_box_minimum",
+                "reference_frame": "part_reference_point_local",
+                "reference_frame_position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "assembly_position": [
+                    -17.326441,
+                    45.836193,
+                    13.0
+                ],
+                "coordinate_frame": "fusion_root_assembly",
+                "units": "mm",
+                "cad_mapping": {
+                    "source_frame": "component_local",
+                    "position": [
+                        0.0,
+                        0.0,
+                        -80.0
+                    ]
+                }
+            },
+            "bounding_box": {
+                "min": [
+                    -17.336441,
+                    -34.173807,
+                    12.99
+                ],
+                "max": [
+                    -9.316441,
+                    45.846193,
+                    18.19
+                ]
+            },
+            "assembly_height": 12.99,
+            "coordinate_frames": {
+                "component_local": "component_local",
+                "occurrence_transform": "component_local_to_fusion_root_assembly",
+                "assembly": "fusion_root_assembly",
+                "assembly_axis_in_component_local": {
+                    "vector": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "cardinal_axis": "+Y"
+                },
+                "component_axes_in_assembly": {
+                    "local_x": [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "local_y": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "local_z": [
+                        0.0,
+                        -1.0,
+                        0.0
+                    ]
+                }
+            },
+            "orientation": {
+                "full_rotation_matrix": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ],
+                "in_plane_yaw": {
+                    "status": "valid",
+                    "degrees": 0.0,
+                    "reference_axis": "assembly_plane_reference_x",
+                    "reference_x": [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "reference_y": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "component_local_axis_used": "+X",
+                    "component_up_axis": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                },
+                "rotation_convention": "component_local_to_fusion_root_assembly"
+            }
+        },
+        {
+            "id": "Plate 1x10 Silver:2",
+            "component": "Plate 1x10 Silver__2",
+            "fusion_component_name": "Plate 1x10 Silver",
+            "position": [
+                -9.476441,
+                -34.163807,
+                13.0
+            ],
+            "occurrence_origin": [
+                -9.476441,
+                -34.163807,
+                13.0
+            ],
+            "rotation": [
+                [
+                    1.0,
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    0.0,
+                    -1.0
+                ],
+                [
+                    0.0,
+                    1.0,
+                    0.0
+                ]
+            ],
+            "reference_point": {
+                "name": "component_local_bounding_box_min_corner",
+                "method": "component_local_bounding_box_minimum",
+                "reference_frame": "part_reference_point_local",
+                "reference_frame_position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "assembly_position": [
+                    -9.476441,
+                    45.836193,
+                    13.0
+                ],
+                "coordinate_frame": "fusion_root_assembly",
+                "units": "mm",
+                "cad_mapping": {
+                    "source_frame": "component_local",
+                    "position": [
+                        0.0,
+                        0.0,
+                        -80.0
+                    ]
+                }
+            },
+            "bounding_box": {
+                "min": [
+                    -9.486441,
+                    -34.173807,
+                    12.99
+                ],
+                "max": [
+                    -1.466441,
+                    45.846193,
+                    18.19
+                ]
+            },
+            "assembly_height": 12.99,
+            "coordinate_frames": {
+                "component_local": "component_local",
+                "occurrence_transform": "component_local_to_fusion_root_assembly",
+                "assembly": "fusion_root_assembly",
+                "assembly_axis_in_component_local": {
+                    "vector": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "cardinal_axis": "+Y"
+                },
+                "component_axes_in_assembly": {
+                    "local_x": [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "local_y": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "local_z": [
+                        0.0,
+                        -1.0,
+                        0.0
+                    ]
+                }
+            },
+            "orientation": {
+                "full_rotation_matrix": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ],
+                "in_plane_yaw": {
+                    "status": "valid",
+                    "degrees": 0.0,
+                    "reference_axis": "assembly_plane_reference_x",
+                    "reference_x": [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "reference_y": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "component_local_axis_used": "+X",
+                    "component_up_axis": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                },
+                "rotation_convention": "component_local_to_fusion_root_assembly"
+            }
+        },
+        {
+            "id": "389423 Bright Blue Technic Brick 1 x 6 with Holes:1",
+            "component": "389423 Bright Blue Technic Brick 1 x 6 with Holes",
+            "fusion_component_name": "389423 Bright Blue Technic Brick 1 x 6 with Holes",
+            "position": [
+                -5.401441,
+                41.911193,
+                35.53
+            ],
+            "occurrence_origin": [
+                -5.401441,
+                41.911193,
+                35.53
+            ],
+            "rotation": [
+                [
+                    0.0,
+                    0.0,
+                    -1.0
+                ],
+                [
+                    -1.0,
+                    0.0,
+                    0.0
+                ],
+                [
+                    0.0,
+                    1.0,
+                    0.0
+                ]
+            ],
+            "reference_point": {
+                "name": "component_local_bounding_box_min_corner",
+                "method": "component_local_bounding_box_minimum",
+                "reference_frame": "part_reference_point_local",
+                "reference_frame_position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "assembly_position": [
+                    -1.401441,
+                    45.911193,
+                    35.53
+                ],
+                "coordinate_frame": "fusion_root_assembly",
+                "units": "mm",
+                "cad_mapping": {
+                    "source_frame": "component_local",
+                    "position": [
+                        -4.0,
+                        0.0,
+                        -4.0
+                    ]
+                }
+            },
+            "bounding_box": {
+                "min": [
+                    -9.411441,
+                    -2.098807,
+                    35.52
+                ],
+                "max": [
+                    -1.391441,
+                    45.921193,
+                    46.74
+                ]
+            },
+            "assembly_height": 35.52,
+            "coordinate_frames": {
+                "component_local": "component_local",
+                "occurrence_transform": "component_local_to_fusion_root_assembly",
+                "assembly": "fusion_root_assembly",
+                "assembly_axis_in_component_local": {
+                    "vector": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "cardinal_axis": "+Y"
+                },
+                "component_axes_in_assembly": {
+                    "local_x": [
+                        0.0,
+                        -1.0,
+                        0.0
+                    ],
+                    "local_y": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "local_z": [
+                        -1.0,
+                        0.0,
+                        0.0
+                    ]
+                }
+            },
+            "orientation": {
+                "full_rotation_matrix": [
+                    [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    [
+                        -1.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ],
+                "in_plane_yaw": {
+                    "status": "valid",
+                    "degrees": -90.0,
+                    "reference_axis": "assembly_plane_reference_x",
+                    "reference_x": [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "reference_y": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "component_local_axis_used": "+X",
+                    "component_up_axis": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                },
+                "rotation_convention": "component_local_to_fusion_root_assembly"
+            }
+        }
+    ],
+    "relationships": [
+        {
+            "part_a": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+            "part_b": "Plate 1x10 Silver:1",
+            "evidence": [
+                {
+                    "type": "candidate_contact",
+                    "confidence": "low"
+                },
+                {
+                    "type": "joint",
+                    "joint_type": "adsk::fusion::Joint",
+                    "confidence": "high"
+                }
+            ]
+        },
+        {
+            "part_a": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+            "part_b": "Plate 1x10 Silver:2",
+            "evidence": [
+                {
+                    "type": "candidate_contact",
+                    "confidence": "low"
+                },
+                {
+                    "type": "joint",
+                    "joint_type": "adsk::fusion::Joint",
+                    "confidence": "high"
+                }
+            ]
+        },
+        {
+            "part_a": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+            "part_b": "389423 Bright Blue Technic Brick 1 x 6 with Holes:1",
+            "evidence": [
+                {
+                    "type": "candidate_contact",
+                    "confidence": "low"
+                },
+                {
+                    "type": "joint",
+                    "joint_type": "adsk::fusion::Joint",
+                    "confidence": "high"
+                }
+            ]
+        },
+        {
+            "part_a": "Plate 1x10 Silver:1",
+            "part_b": "Plate 1x10 Silver:2",
+            "evidence": [
+                {
+                    "type": "candidate_contact",
+                    "confidence": "low"
+                }
+            ]
+        }
+    ],
+    "direction_analysis": [
+        {
+            "part": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+            "candidate_directions": [
+                {
+                    "name": "+X_global",
+                    "vector": [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-X_global",
+                    "vector": [
+                        -1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "+Y_global",
+                    "vector": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-Y_global",
+                    "vector": [
+                        0.0,
+                        -1.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "+Z_global",
+                    "vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-Z_global",
+                    "vector": [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                }
+            ]
+        },
+        {
+            "part": "Plate 1x10 Silver:1",
+            "candidate_directions": [
+                {
+                    "name": "+X_global",
+                    "vector": [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-X_global",
+                    "vector": [
+                        -1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "+Y_global",
+                    "vector": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-Y_global",
+                    "vector": [
+                        0.0,
+                        -1.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "+Z_global",
+                    "vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-Z_global",
+                    "vector": [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                }
+            ]
+        },
+        {
+            "part": "Plate 1x10 Silver:2",
+            "candidate_directions": [
+                {
+                    "name": "+X_global",
+                    "vector": [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-X_global",
+                    "vector": [
+                        -1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "+Y_global",
+                    "vector": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-Y_global",
+                    "vector": [
+                        0.0,
+                        -1.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "+Z_global",
+                    "vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-Z_global",
+                    "vector": [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                }
+            ]
+        },
+        {
+            "part": "389423 Bright Blue Technic Brick 1 x 6 with Holes:1",
+            "candidate_directions": [
+                {
+                    "name": "+X_global",
+                    "vector": [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-X_global",
+                    "vector": [
+                        -1.0,
+                        0.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "+Y_global",
+                    "vector": [
+                        0.0,
+                        1.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-Y_global",
+                    "vector": [
+                        0.0,
+                        -1.0,
+                        0.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "+Z_global",
+                    "vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                },
+                {
+                    "name": "-Z_global",
+                    "vector": [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    "frame": "global",
+                    "source": "global_axis"
+                }
+            ]
+        }
+    ],
+    "precedence_analysis": {
+        "method": "fusion_joint_graph_plus_assembly_axis_height",
+        "assembly_axis": [
+            0,
+            0,
+            1
+        ],
+        "part_heights": {
+            "2850 Medium Stone Grey Technic Engine Cylinder Head:2": 16.32,
+            "Plate 1x10 Silver:1": 12.99,
+            "Plate 1x10 Silver:2": 12.99,
+            "389423 Bright Blue Technic Brick 1 x 6 with Holes:1": 35.52
+        },
+        "joint_graph": {
+            "2850 Medium Stone Grey Technic Engine Cylinder Head:2": [
+                "Plate 1x10 Silver:1",
+                "Plate 1x10 Silver:2",
+                "389423 Bright Blue Technic Brick 1 x 6 with Holes:1"
+            ],
+            "Plate 1x10 Silver:1": [
+                "2850 Medium Stone Grey Technic Engine Cylinder Head:2"
+            ],
+            "Plate 1x10 Silver:2": [
+                "2850 Medium Stone Grey Technic Engine Cylinder Head:2"
+            ],
+            "389423 Bright Blue Technic Brick 1 x 6 with Holes:1": [
+                "2850 Medium Stone Grey Technic Engine Cylinder Head:2"
+            ]
+        },
+        "precedence_graph": {
+            "2850 Medium Stone Grey Technic Engine Cylinder Head:2": [
+                "389423 Bright Blue Technic Brick 1 x 6 with Holes:1"
+            ],
+            "Plate 1x10 Silver:1": [
+                "2850 Medium Stone Grey Technic Engine Cylinder Head:2"
+            ],
+            "Plate 1x10 Silver:2": [
+                "2850 Medium Stone Grey Technic Engine Cylinder Head:2"
+            ],
+            "389423 Bright Blue Technic Brick 1 x 6 with Holes:1": []
+        },
+        "precedence_edges": [
+            {
+                "before": "Plate 1x10 Silver:1",
+                "after": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+                "reason": "lower_part_precedes_higher_part",
+                "evidence": "fusion_joint",
+                "confidence": "high",
+                "height_before": 12.99,
+                "height_after": 16.32
+            },
+            {
+                "before": "Plate 1x10 Silver:2",
+                "after": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+                "reason": "lower_part_precedes_higher_part",
+                "evidence": "fusion_joint",
+                "confidence": "high",
+                "height_before": 12.99,
+                "height_after": 16.32
+            },
+            {
+                "before": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+                "after": "389423 Bright Blue Technic Brick 1 x 6 with Holes:1",
+                "reason": "lower_part_precedes_higher_part",
+                "evidence": "fusion_joint",
+                "confidence": "high",
+                "height_before": 16.32,
+                "height_after": 35.52
+            }
+        ],
+        "ambiguous_pairs": [],
+        "roots": [
+            "Plate 1x10 Silver:1",
+            "Plate 1x10 Silver:2"
+        ],
+        "leaves": [
+            "389423 Bright Blue Technic Brick 1 x 6 with Holes:1"
+        ],
+        "connected_components": [
+            [
+                "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+                "389423 Bright Blue Technic Brick 1 x 6 with Holes:1",
+                "Plate 1x10 Silver:1",
+                "Plate 1x10 Silver:2"
+            ]
+        ]
+    },
+    "assembly_plan": {
+        "method": "precedence_graph_topological_planning",
+        "status": "valid",
+        "coordinate_system": {
+            "frame": "fusion_root_assembly",
+            "units": "mm",
+            "origin": "Fusion root component origin"
+        },
+        "assembly_anchor": {
+            "part": "Plate 1x10 Silver:1",
+            "operation": "place_Plate 1x10 Silver:1",
+            "reference_point": {
+                "name": "component_local_bounding_box_min_corner",
+                "method": "component_local_bounding_box_minimum",
+                "reference_frame": "part_reference_point_local",
+                "reference_frame_position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "assembly_position": [
+                    -17.326441,
+                    45.836193,
+                    13.0
+                ],
+                "coordinate_frame": "fusion_root_assembly",
+                "units": "mm",
+                "cad_mapping": {
+                    "source_frame": "component_local",
+                    "position": [
+                        0.0,
+                        0.0,
+                        -80.0
+                    ]
+                }
+            },
+            "selection": {
+                "status": "automatic",
+                "method": "root_lowest_along_assembly_axis",
+                "part": "Plate 1x10 Silver:1",
+                "candidates": [
+                    {
+                        "part": "Plate 1x10 Silver:1",
+                        "assembly_axis_projection_mm": 12.99
+                    },
+                    {
+                        "part": "Plate 1x10 Silver:2",
+                        "assembly_axis_projection_mm": 12.99
+                    }
+                ],
+                "tie_breaker": "occurrence_name_ascending"
+            }
+        },
+        "steps": [
+            {
+                "step": 1,
+                "operations": [
+                    {
+                        "id": "place_Plate 1x10 Silver:1",
+                        "type": "PLACE",
+                        "part": "Plate 1x10 Silver:1",
+                        "component": "Plate 1x10 Silver",
+                        "target_position": [
+                            -17.326441,
+                            45.836193,
+                            13.0
+                        ],
+                        "target_position_reference": {
+                            "name": "component_local_bounding_box_min_corner",
+                            "method": "component_local_bounding_box_minimum",
+                            "reference_frame": "part_reference_point_local",
+                            "reference_frame_position": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "target_rotation": [
+                            [
+                                1.0,
+                                0.0,
+                                0.0
+                            ],
+                            [
+                                0.0,
+                                0.0,
+                                -1.0
+                            ],
+                            [
+                                0.0,
+                                1.0,
+                                0.0
+                            ]
+                        ],
+                        "target_coordinate_frame": "fusion_root_assembly",
+                        "target_units": "mm",
+                        "target_relative_to_anchor": {
+                            "anchor_part": "Plate 1x10 Silver:1",
+                            "position": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                [
+                                    1.0,
+                                    0.0,
+                                    0.0
+                                ],
+                                [
+                                    0.0,
+                                    1.0,
+                                    0.0
+                                ],
+                                [
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            ],
+                            "coordinate_frame": "anchor_reference_point_local",
+                            "position_units": "mm"
+                        },
+                        "dependencies": [],
+                        "depends_on_parts": []
+                    }
+                ]
+            },
+            {
+                "step": 2,
+                "operations": [
+                    {
+                        "id": "place_Plate 1x10 Silver:2",
+                        "type": "PLACE",
+                        "part": "Plate 1x10 Silver:2",
+                        "component": "Plate 1x10 Silver__2",
+                        "target_position": [
+                            -9.476441,
+                            45.836193,
+                            13.0
+                        ],
+                        "target_position_reference": {
+                            "name": "component_local_bounding_box_min_corner",
+                            "method": "component_local_bounding_box_minimum",
+                            "reference_frame": "part_reference_point_local",
+                            "reference_frame_position": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "target_rotation": [
+                            [
+                                1.0,
+                                0.0,
+                                0.0
+                            ],
+                            [
+                                0.0,
+                                0.0,
+                                -1.0
+                            ],
+                            [
+                                0.0,
+                                1.0,
+                                0.0
+                            ]
+                        ],
+                        "target_coordinate_frame": "fusion_root_assembly",
+                        "target_units": "mm",
+                        "target_relative_to_anchor": {
+                            "anchor_part": "Plate 1x10 Silver:1",
+                            "position": [
+                                7.85,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                [
+                                    1.0,
+                                    0.0,
+                                    0.0
+                                ],
+                                [
+                                    0.0,
+                                    1.0,
+                                    0.0
+                                ],
+                                [
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            ],
+                            "coordinate_frame": "anchor_reference_point_local",
+                            "position_units": "mm"
+                        },
+                        "dependencies": [],
+                        "depends_on_parts": []
+                    }
+                ]
+            },
+            {
+                "step": 3,
+                "operations": [
+                    {
+                        "id": "place_2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+                        "type": "PLACE",
+                        "part": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+                        "component": "2850 Medium Stone Grey Technic Engine Cylinder Head",
+                        "target_position": [
+                            -21.401441,
+                            46.011193,
+                            16.33
+                        ],
+                        "target_position_reference": {
+                            "name": "component_local_bounding_box_min_corner",
+                            "method": "component_local_bounding_box_minimum",
+                            "reference_frame": "part_reference_point_local",
+                            "reference_frame_position": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "target_rotation": [
+                            [
+                                1.0,
+                                0.0,
+                                0.0
+                            ],
+                            [
+                                0.0,
+                                0.0,
+                                -1.0
+                            ],
+                            [
+                                0.0,
+                                1.0,
+                                0.0
+                            ]
+                        ],
+                        "target_coordinate_frame": "fusion_root_assembly",
+                        "target_units": "mm",
+                        "target_relative_to_anchor": {
+                            "anchor_part": "Plate 1x10 Silver:1",
+                            "position": [
+                                -4.075,
+                                3.33,
+                                -0.175
+                            ],
+                            "rotation": [
+                                [
+                                    1.0,
+                                    0.0,
+                                    0.0
+                                ],
+                                [
+                                    0.0,
+                                    1.0,
+                                    0.0
+                                ],
+                                [
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            ],
+                            "coordinate_frame": "anchor_reference_point_local",
+                            "position_units": "mm"
+                        },
+                        "dependencies": [
+                            "place_Plate 1x10 Silver:1",
+                            "place_Plate 1x10 Silver:2"
+                        ],
+                        "depends_on_parts": [
+                            "Plate 1x10 Silver:1",
+                            "Plate 1x10 Silver:2"
+                        ]
+                    }
+                ]
+            },
+            {
+                "step": 4,
+                "operations": [
+                    {
+                        "id": "place_389423 Bright Blue Technic Brick 1 x 6 with Holes:1",
+                        "type": "PLACE",
+                        "part": "389423 Bright Blue Technic Brick 1 x 6 with Holes:1",
+                        "component": "389423 Bright Blue Technic Brick 1 x 6 with Holes",
+                        "target_position": [
+                            -1.401441,
+                            45.911193,
+                            35.53
+                        ],
+                        "target_position_reference": {
+                            "name": "component_local_bounding_box_min_corner",
+                            "method": "component_local_bounding_box_minimum",
+                            "reference_frame": "part_reference_point_local",
+                            "reference_frame_position": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "target_rotation": [
+                            [
+                                0.0,
+                                0.0,
+                                -1.0
+                            ],
+                            [
+                                -1.0,
+                                0.0,
+                                0.0
+                            ],
+                            [
+                                0.0,
+                                1.0,
+                                0.0
+                            ]
+                        ],
+                        "target_coordinate_frame": "fusion_root_assembly",
+                        "target_units": "mm",
+                        "target_relative_to_anchor": {
+                            "anchor_part": "Plate 1x10 Silver:1",
+                            "position": [
+                                15.925,
+                                22.53,
+                                -0.075
+                            ],
+                            "rotation": [
+                                [
+                                    0.0,
+                                    0.0,
+                                    -1.0
+                                ],
+                                [
+                                    0.0,
+                                    1.0,
+                                    0.0
+                                ],
+                                [
+                                    1.0,
+                                    0.0,
+                                    0.0
+                                ]
+                            ],
+                            "coordinate_frame": "anchor_reference_point_local",
+                            "position_units": "mm"
+                        },
+                        "dependencies": [
+                            "place_2850 Medium Stone Grey Technic Engine Cylinder Head:2"
+                        ],
+                        "depends_on_parts": [
+                            "2850 Medium Stone Grey Technic Engine Cylinder Head:2"
+                        ]
+                    }
+                ]
+            }
+        ],
+        "operation_count": 4,
+        "step_count": 4
+    },
+    "coordinate_frame_analysis": {
+        "method": "explicit_occurrence_rotation_analysis",
+        "assembly_axis": [
+            0.0,
+            0.0,
+            1
+        ],
+        "parts": [
+            {
+                "part": "2850 Medium Stone Grey Technic Engine Cylinder Head:2",
+                "component": "2850 Medium Stone Grey Technic Engine Cylinder Head",
+                "assembly_axis_in_component_local": [
+                    0.0,
+                    1.0,
+                    0.0
+                ],
+                "assembly_axis_cardinal_in_component": "+Y",
+                "in_plane_yaw_deg": 0.0,
+                "rotation_matrix": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ]
+            },
+            {
+                "part": "Plate 1x10 Silver:1",
+                "component": "Plate 1x10 Silver",
+                "assembly_axis_in_component_local": [
+                    0.0,
+                    1.0,
+                    0.0
+                ],
+                "assembly_axis_cardinal_in_component": "+Y",
+                "in_plane_yaw_deg": 0.0,
+                "rotation_matrix": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ]
+            },
+            {
+                "part": "Plate 1x10 Silver:2",
+                "component": "Plate 1x10 Silver__2",
+                "assembly_axis_in_component_local": [
+                    0.0,
+                    1.0,
+                    0.0
+                ],
+                "assembly_axis_cardinal_in_component": "+Y",
+                "in_plane_yaw_deg": 0.0,
+                "rotation_matrix": [
+                    [
+                        1.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ]
+            },
+            {
+                "part": "389423 Bright Blue Technic Brick 1 x 6 with Holes:1",
+                "component": "389423 Bright Blue Technic Brick 1 x 6 with Holes",
+                "assembly_axis_in_component_local": [
+                    0.0,
+                    1.0,
+                    0.0
+                ],
+                "assembly_axis_cardinal_in_component": "+Y",
+                "in_plane_yaw_deg": -90.0,
+                "rotation_matrix": [
+                    [
+                        0.0,
+                        0.0,
+                        -1.0
+                    ],
+                    [
+                        -1.0,
+                        0.0,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ]
+            }
+        ],
+        "note": "Do not assume component-local +Z is assembly up. The assembly axis is explicitly transformed into each component-local frame."
+    },
+    "validation": {
+        "rotation_path": {
+            "status": "exercised",
+            "rotated_parts": [
+                "389423 Bright Blue Technic Brick 1 x 6 with Holes:1"
+            ],
+            "note": "At least one non-zero in-plane yaw was exported."
+        },
+        "reference_point_policy": {
+            "method": "component_local_bounding_box_min_corner_default",
+            "preserved": true,
+            "note": "The bbox-min-corner remains the canonical component reference point unless explicitly overridden."
+        },
+        "mesh_policy": {
+            "required": true,
+            "representation": "3d_component_local_mesh",
+            "note": "Mesh generation is handled by toCV.py. AssemblyGuide stores the pose needed to place that local mesh."
+        }
+    }
+}
