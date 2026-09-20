@@ -15,15 +15,9 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from perception.geometry import board_point_from_undistorted_pixel, camera_pixel_to_board
-
 COARSE_STEP_DEG = 4.0
 REFINE_STEP_DEG = 0.5
 CANVAS_PAD_PX = 6
-# Length of the probe arm used to turn an image-space direction into a board
-# direction. Long enough that pixel quantisation does not dominate the angle,
-# short enough to stay on the same part of the board plane.
-AXIS_ARM_PX = 40.0
 
 
 @dataclass
@@ -131,9 +125,9 @@ class BoardPlanarPose:
     its outline drawing. A CAD target pose must use the same reference point.
 
     theta_deg is the angle of the part's +x axis measured in the BOARD frame,
-    CCW from board +x toward board +y, in [0, 360). It is derived by mapping a
-    direction through the board plane rather than by reusing the image-space
-    angle, so the upside-down mount and perspective never leak into it.
+    CCW from board +x toward board +y, in [0, 360). It is measured in a metric
+    rectification of the board plane (perception/rectify.py), so neither the
+    camera angle nor the upside-down mount can leak into it.
     """
     x_mm: float
     y_mm: float
@@ -152,49 +146,30 @@ class BoardPlanarPose:
                 "z_mm": self.z_mm, "theta_deg": self.theta_deg}
 
 
-def _to_board(u, v, rvec, tvec, K, dist, undistorted):
-    if undistorted:
-        return board_point_from_undistorted_pixel(u, v, rvec, tvec, K)
-    return camera_pixel_to_board(u, v, rvec, tvec, K, dist)
+@dataclass
+class BoardPlanarPose:
+    """A part's placement on the board plane, in millimetres and degrees.
 
+    x_mm / y_mm are the AREA CENTROID of the part silhouette, not the origin of
+    its outline drawing. A CAD target pose must use the same reference point.
 
-def board_scale_px_per_mm(point_mm, rvec, tvec, K, dist, undistorted=False):
-    """Local image scale on the board plane at a board point, in px/mm.
-
-    Measured from the board pose itself, which beats a camera-height stub: it
-    follows tilt and perspective, and needs no hand measurement.
+    theta_deg is the angle of the part's +x axis measured in the BOARD frame,
+    CCW from board +x toward board +y, in [0, 360). It is measured in a metric
+    rectification of the board plane (perception/rectify.py), so neither the
+    camera angle nor the upside-down mount can leak into it.
     """
-    point = np.asarray(point_mm, float).reshape(-1)[:2]
-    samples = np.array([[point[0], point[1], 0.0],
-                        [point[0] + 1.0, point[1], 0.0],
-                        [point[0], point[1] + 1.0, 0.0]])
-    distortion = np.zeros(5) if undistorted else np.asarray(dist, float)
-    projected = cv2.projectPoints(samples, rvec, tvec, K, distortion)[0].reshape(-1, 2)
-    along_x = float(np.linalg.norm(projected[1] - projected[0]))
-    along_y = float(np.linalg.norm(projected[2] - projected[0]))
-    scale = 0.5 * (along_x + along_y)
-    if not np.isfinite(scale) or scale <= 0:
-        raise ValueError("Board scale is degenerate at this point.")
-    return scale
+    x_mm: float
+    y_mm: float
+    theta_deg: float
+    z_mm: float = 0.0
+    score: float = 0.0
 
+    @property
+    def axis_board(self):
+        """Unit vector of the part's +x axis in board coordinates."""
+        t = np.radians(self.theta_deg)
+        return np.array([np.cos(t), np.sin(t)])
 
-def planar_pose_to_board(pose_px, rvec, tvec, K, dist, undistorted=False,
-                         arm_px=AXIS_ARM_PX):
-    """Convert an image-space PlanarPose into board millimetres and degrees.
-
-    The angle is obtained by mapping the centre and a point one arm along the
-    part's +x axis onto the board plane and taking the bearing between them.
-    Reusing the image-space angle instead would bake in the camera mount.
-    """
-    centre_px = np.array([pose_px.x_px, pose_px.y_px], float)
-    tip_px = centre_px + arm_px * pose_px.part_axis_px
-
-    centre = _to_board(centre_px[0], centre_px[1], rvec, tvec, K, dist, undistorted)
-    tip = _to_board(tip_px[0], tip_px[1], rvec, tvec, K, dist, undistorted)
-
-    delta = tip[:2] - centre[:2]
-    if float(np.hypot(*delta)) < 1e-9:
-        raise ValueError("Part axis collapsed to a point on the board plane.")
-    theta = float(np.degrees(np.arctan2(delta[1], delta[0])) % 360.0)
-    return BoardPlanarPose(float(centre[0]), float(centre[1]), theta,
-                           0.0, float(pose_px.score))
+    def as_dict(self):
+        return {"x_mm": self.x_mm, "y_mm": self.y_mm,
+                "z_mm": self.z_mm, "theta_deg": self.theta_deg}

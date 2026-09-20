@@ -82,17 +82,22 @@ def validate(record, reference, camera, projector, tracker):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['calibrate', 'validate', 'render', 'validate-board'])
+    parser.add_argument('action', choices=['calibrate', 'validate', 'render', 'validate-board', 'verify-current'])
     parser.add_argument('--stationary-ready', required=True, action='store_true',
                         help='Confirm unchanged rigid mount, board and projector settings; recalibrate after any movement.')
     parser.add_argument('--target', nargs=2, type=float, metavar=('X_MM', 'Y_MM'))
     parser.add_argument('--outline', type=Path, help='JSON list of board XY vertices for a closed outline.')
     parser.add_argument('--overlay', type=Path, help='Image spanning BOARD_BOUNDS_MM, +X right and +Y down.')
     parser.add_argument('--overwrite', action='store_true')
+    parser.add_argument('--dot-color', choices=['green','magenta'], default=None)
     args = parser.parse_args()
     if sum(x is not None for x in (args.target, args.outline, args.overlay)) > 1:
         raise ValueError('Choose only one of --target, --outline, --overlay.')
     config.validate_fixture()
+    if args.action == 'verify-current':
+        from calibration.planar_verify import verify_current
+        verify_current(dot_color=args.dot_color)
+        return
     tracker = BoardTracker(*load_camera(), max_rms_px=config.COLLECTOR_MAX_ARUCO_RMS_PX)
     record = None
     if args.action == 'calibrate':
@@ -105,6 +110,8 @@ def main():
                 or record['status'].startswith('STALE')):
             raise ValueError('Planar calibration is stale/incompatible; recalibrate.')
     print('PLANAR: only valid while projector, camera, board and projector settings remain unchanged.')
+    config.DOT_COLOR = args.dot_color or (record.get('dot_color','green') if record else config.DOT_COLOR)
+    print(f'Calibration dot color: {config.DOT_COLOR}')
     print('Visually verify all calibration dots land on flat cardboard. Move anything -> recalibrate.')
     with Projector() as projector, Camera() as camera:
         current = wait_ready(camera, tracker)
@@ -124,15 +131,26 @@ def main():
             stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S_%f')
             (config.DATA_DIR / f'planar_samples_{stamp}.json').write_text(json.dumps(rows, indent=2), encoding='utf-8')
             mapping = fit_mapping([r['board_xyz'][:2] for r in rows], [r['projector_uv'] for r in rows])
-            record = dict(mapping=mapping, rows=rows, status='UNVALIDATED',
+            record = dict(mapping=mapping, rows=rows, status='UNVALIDATED', dot_color=config.DOT_COLOR,
                           timestamp=stamp, camera_signature=camera_signature(), fixture_signature=fixture_signature(),
                           projector_size=list(config.PROJECTOR_SIZE),
                           reference=dict(rvec=current.rvec.tolist(), tvec=current.tvec.tolist(),
                                          object_points=current.object_points.tolist()))
-            write_record(record)
-            print(f"Saved planar H: {sum(mapping['inliers'])}/{len(rows)} inliers; RMS {mapping['rms_px']:.3f} px; coverage {mapping['coverage']:.0%}")
+            print(f"Candidate planar H: {sum(mapping['inliers'])}/{len(rows)} inliers; RMS {mapping['rms_px']:.3f} px; coverage {mapping['coverage']:.0%}")
             if sum(mapping['inliers']) < 8:
                 print('Only 4-7 inliers: prefer 8-12+ distributed observations.')
+            from calibration.planar_verify import landing_checks
+            checks=landing_checks(mapping,current,camera,projector,tracker)
+            record['validation_history']=[checks]
+            (config.DATA_DIR / f'planar_candidate_{stamp}.json').write_text(json.dumps(record,indent=2),encoding='utf-8')
+            if not checks['passed']:
+                raise ValueError('Candidate failed held-out validation; saved homography was not overwritten.')
+            record['status']='VALIDATED AT RECORDED POSITION'
+            if config.PLANAR_CALIBRATION.exists():
+                (config.DATA_DIR / f'planar_previous_{stamp}.json').write_bytes(config.PLANAR_CALIBRATION.read_bytes())
+            write_record(record)
+            print(f'Saved validated planar calibration using {config.DOT_COLOR} dots.')
+            return
         reference = SimpleNamespace(**{k: np.asarray(v) for k, v in record['reference'].items()})
         if args.action == 'validate-board':
             from calibration.planar_board import validate_board

@@ -14,6 +14,8 @@ TOOLS = {
     "solve": "calibration.solve_projector_calibration",
     "validate": "calibration.validate_world_projection",
     "planar": "calibration.planar",
+    "placement": "projection.placement",
+    "board-overlay": "projection.guidance",
     "perceive": "assembly.demo_perception",
 }
 
