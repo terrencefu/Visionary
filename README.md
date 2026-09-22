@@ -6,6 +6,10 @@ Built at **Hack the North**, Visionary turns a CAD assembly into physical placem
 
 Our prototype uses LEGO, but the idea is broader: bring the information already inside a CAD model onto the workbench, where it can help someone build.
 
+![Visionary's camera and projector rig casting a small LEGO placement outline onto an ArUco-marked cardboard workspace](docs/images/legoprojection.jpg)
+
+*An early placement test: a LEGO-sized footprint projected directly onto the workspace.*
+
 ## The idea
 
 Following an assembly diagram means repeatedly looking away from the object and translating a drawing into a physical action. Visionary puts the next instruction on the object itself.
@@ -49,6 +53,48 @@ The active workflow uses **3D camera–projector calibration**. An earlier plana
 Our physical prototype uses a small LEGO assembly with an engine block, a Technic brick, and two plates. In earlier board-plane tests, camera-measured projection errors were approximately **1–3.4 mm** across tested rig positions. Those measurements are not an independent ruler test or a guarantee of accuracy on raised surfaces.
 
 Automated tests cover geometry, tracking, segmentation, projection, placement rejection, and diagnostic replay. They complement physical testing; they don't establish reliability for every assembly.
+
+## From printed parts to projected guidance
+
+These photos follow the hardware build and early projection and detection tests at Hack the North.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/3dprint.jpg" alt="Black 3D-printed mount components and assembly hardware laid out on a table" width="100%"></td>
+    <td width="50%"><img src="docs/images/cameramount.jpg" alt="Front view of the projector and webcam attached to their shared mount" width="100%"></td>
+  </tr>
+  <tr>
+    <td><strong>Build the mount.</strong> Printed brackets, plates, and hardware form the camera–projector rig.</td>
+    <td><strong>Pair the camera and projector.</strong> A shared mount keeps their relative geometry fixed for calibration.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/unwarpedprojectorsetup.jpg" alt="Projector casting a full image across the cardboard board and surrounding floor" width="100%"></td>
+    <td><img src="docs/images/areamapping.jpg" alt="Rig projecting a rectangular workspace outline inside the board's four ArUco markers" width="100%"></td>
+  </tr>
+  <tr>
+    <td><strong>Find the projection footprint.</strong> The full image extends beyond the cardboard; calibration uses dots that land on the usable flat surface.</td>
+    <td><strong>Map the workspace.</strong> A projected outline provides a visual check of alignment inside the fixed ArUco markers.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/imgdetection1.jpg" alt="Grey LEGO component on the board, with a green detection box and silhouette view on the laptop" width="100%"></td>
+    <td><img src="docs/images/imgdetection2.jpg" alt="Red LEGO plate on the board, with its detected region highlighted in the laptop's camera preview" width="100%"></td>
+  </tr>
+  <tr>
+    <td><strong>Detect a new object.</strong> The camera highlights a grey component within the workspace.</td>
+    <td><strong>Test another shape.</strong> A long red plate is detected in the same workspace.</td>
+  </tr>
+</table>
+
+The detection photos show the early **change-detection stage**, with “identity not checked” on screen. They demonstrate finding newly placed objects, not completed CAD identity or assembly-placement verification.
+
+<details>
+<summary>Another view of the assembled hardware</summary>
+
+<p align="center"><img src="docs/images/cameramount2.jpg" alt="Side view of the projector above the webcam on the assembled printed pan/tilt mount" width="480"></p>
+
+The assembled rig includes a pan/tilt mechanism. The current assembly workflow keeps the head stationary; automatic servo aiming is not part of the demo loop.
+
+</details>
 
 ## What makes the approach interesting
 
